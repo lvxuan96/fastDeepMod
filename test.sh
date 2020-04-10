@@ -1,0 +1,1 @@
+python bin/DeepMod.py detect --wrkBase data/ --Ref ref/c_reinhardtii.fa  --FileID 0_test --outFolder output/ --modfile train_mod/rnn_sinmodC_P100wd21_f7ne1u0_4/mod_train_sinmodC_P100wd21_f3ne1u0 --threads 1
