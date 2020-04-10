@@ -1,3 +1,4 @@
+
 import os;
 import sys;
 import string;
@@ -25,19 +26,6 @@ from tensorflow.contrib import rnn
 from . import myMultiBiRNN
 from . import EventTable
 from . import MoveTable
-
-import struct
-import logging
-from timeit import default_timer as timer
-
-logger = logging.getLogger(__name__)
-logger.setLevel(level=logging.INFO)
-handler = logging.FileHandler("./logs/log.txt")
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s,%(name)s,%(levelname)s,%(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-os.environ["CUDA_VISIBLE_DEVICES"] = "2" # set GPU ID
 
 rnn_pred_batch_size = 512
 
@@ -88,7 +76,6 @@ def getAlbacoreVersion(moptions, sp_param):
       elif used_version >= LooseVersion("2.0"): sp_param['used_albacore_version'] = 2;
    except: # default verion is 1 now
       sp_param['used_albacore_version'] = 1;
-
 
 # not used now.
 def get_kmer_corrected_info(moptions):
@@ -168,9 +155,6 @@ def getEvent(moptions, sp_param):
   try: # get events from a fast5 file
      event_path = ''.join([fast5_analysis, '/', moptions['basecall_1d'], '/', moptions['basecall_2strand'], '/', fast5_events])
      events_data = sp_param['f5reader'][event_path].value
-     #lx:write events_data
-     # events_data.tofile('events')
-     # logger.info("write events_data")
   except:
      raiseError('No events data', sp_param, "No events data")
      return;
@@ -296,7 +280,7 @@ def mnormalized(moptions, sp_param):
    upper_lim = read_med + (read_mad * 5)
    # normalize as nanoraw did.
    sp_param['raw_signals'] = np.round(np.array([upper_lim if sp_param['raw_signals'][i]>upper_lim else (lower_lim if sp_param['raw_signals'][i]<lower_lim  else sp_param['raw_signals'][i]) for i in range(np.size(sp_param['raw_signals']))]), 3)
-   # logger.info("raw_signals:{}".format(sp_param['raw_signals']))
+
 #
 # get Signal from a fast5 file
 #
@@ -309,9 +293,6 @@ def getRawInfo(moptions, sp_param):
       sp_param['raw_attributes'] = dict(raw_data.attrs.items())
 
       sp_param['raw_signals'] = raw_data['Signal'][()]
-      #lx:write raw_signals
-      # sp_param['raw_signals'].tofile('raw_signals')
-      # logger.info("write raw_signals")
    except:
       raiseError(("No Raw_reads/Signal data %s" % (fast5_rawReads)), sp_param, "No Raw_reads/Signal")
 
@@ -319,29 +300,13 @@ def getRawInfo(moptions, sp_param):
 # get channel_info, AlbacoreVersion, read_id, Raw Signals, Event from a fast5 file
 #
 def getFast5Info(moptions, sp_param):
-   # logger.info("start getting channel_info, AlbacoreVersion, read_id, Raw Signals, Event from a fast5 file.")
    # get channel info
-   # start_getChannelInfo=timer()
    get_channel_info(moptions, sp_param)
-   #lx:sampling_rate
-   # sampling_rate=sp_param["channel_info"]['sampling_rate']
-   # sampling_rate = struct.pack("f", sampling_rate)
-   # logger.info("get sampling_rate")
-   # end_getChannelInfo=timer()
-   # logger.info("get ChannelInfo time: %s Seconds" % (end_getChannelInfo - start_getChannelInfo))
    if "channel_info" not in sp_param:
       raiseError(("Channel information could not be found in %s " % fast5_channel_id), sp_param, "Channel information could not be found")
       return;
-
    # get albacore version
-   # start_getAlbacoreVersion=timer()
    getAlbacoreVersion(moptions, sp_param)
-   #lx:used_albacore_version
-   # used_albacore_version = sp_param['used_albacore_version']
-   # used_albacore_version = struct.pack("i", used_albacore_version)
-   # logger.info("get albacore_version")
-   # end_getAlbacoreVersion=timer()
-   # logger.info("get AlbacoreVersion time: %s Seconds" % (end_getAlbacoreVersion - start_getAlbacoreVersion))
    if 'used_albacore_version' not in sp_param:
       return
 
@@ -355,44 +320,17 @@ def getFast5Info(moptions, sp_param):
       fq_data = (fq_data.decode(encoding="utf-8")).split('\n')
       sp_param['read_id'] = (fq_data[0][1:] if fq_data[0][0]=='@' else fq_data[0]).replace(" ", ":::").replace("\t", "|||")
       sp_param['fq_seq'] = fq_data[1];
-      #lx:fq_seq_len
-      # fq_seq=sp_param['fq_seq']
-      # fq_seq_len = struct.pack("i", len(fq_seq))
-      # logger.info("get fq_seq")
    # get raw signals
-   # start_getRawInfo=timer()
    getRawInfo(moptions, sp_param)
-   # end_getRawInfo=timer()
-   # logger.info("get RawInfo time: %s Seconds"%(end_getRawInfo-start_getRawInfo))
-
    # get events
    if sp_param['f5status']=="":
-      # start_getEvent=timer()
-      getEvent(moptions, sp_param)
-      #lx:event_start_time
-      # event_start_time=sp_param['raw_attributes']['start_time']
-      # event_start_time = struct.pack("i", event_start_time)
-      # logger.info("get event_start_time")
-      # end_getEvent=timer()
-      # logger.info("get Event time: %s Seconds" % (end_getEvent - start_getEvent))
-       #lx:write other data
-       # with open('others','a+b') as f:
-       #    f.write(used_albacore_version)
-       #    f.write(sampling_rate)
-       #    f.write(event_start_time)
-       #    f.write(fq_seq_len)
-       #    f.write(fq_seq.encode('ascii'))
-       # logger.info("get other data")
+       getEvent(moptions, sp_param)
    # normalize signals.
    if sp_param['f5status']=="":
-      # start_mnormalized=timer()
-      mnormalized(moptions, sp_param)
-      # end_mnormalized=timer()
-      # logger.info("normalize raw signals time: %s Seconds" % (end_mnormalized - start_mnormalized))
+       mnormalized(moptions, sp_param)
 
    if sp_param['f5status']=="":
       # get mean, std for each event
-      # start_getMeanStd=timer()
       for i in range(len(sp_param['m_event'])):
          if (len(sp_param['raw_signals'][sp_param['m_event']['start'][i]:sp_param['m_event']['start'][i]+sp_param['m_event']['length'][i]])==0):
             print ('Signal out of range {}: {}-{} {};{} for {}'.format(i, sp_param['m_event']['start'][i], sp_param['m_event']['length'][i], len(sp_param['m_event']), len(sp_param['raw_signals']), sp_param['mfile_path']))
@@ -403,13 +341,11 @@ def getFast5Info(moptions, sp_param):
             break;
          sp_param['m_event']['mean'][i] = round(np.mean(sp_param['raw_signals'][sp_param['m_event']['start'][i]:sp_param['m_event']['start'][i]+sp_param['m_event']['length'][i]]), 3)
          sp_param['m_event']['stdv'][i] = round(np.std(sp_param['raw_signals'][sp_param['m_event']['start'][i]:sp_param['m_event']['start'][i]+sp_param['m_event']['length'][i]]), 3)
-      # end_getMeanStd=timer()
-      # logger.info("get mean, std for each event time: %s Seconds" % (end_getMeanStd - start_getMeanStd))
+
 #
 # associate signals for each event in a fast5 file
 #
 def get_Event_Signals(moptions, sp_options, f5files):
-   # logger.info("get signals of events: associate signals for each event in a fast5 file")
    if moptions['outLevel']<=myCom.OUTPUT_DEBUG:
       start_time = time.time(); runnum = 0;
 
@@ -424,10 +360,7 @@ def get_Event_Signals(moptions, sp_options, f5files):
             sp_param['mfile_path'] = f5f
             sp_param['f5reader'] = mf5
             sp_param['f5status'] = "";
-            # start_getFast5Info=timer()
             getFast5Info(moptions, sp_param)
-            # end_getFast5Info=timer()
-            # logger.info("get fast5 information time: %s Seconds" % (end_getFast5Info - start_getFast5Info))
             if 'get_albacore_version' in sp_param:
                sp_options["get_albacore_version"][str(sp_param['get_albacore_version'])] += 1
             if sp_param['f5status'] == "":
@@ -457,13 +390,8 @@ def get_Event_Signals(moptions, sp_options, f5files):
 # map bases from events to a reference genome
 #
 def mDetect1(moptions, sp_options, f5files):
-   # logger.info("mDetect1 start:get signals of events,map bases from events to a reference genome")
-   start_getEventSignals=timer()
    f5data = get_Event_Signals(moptions, sp_options, f5files)
-   end_getEventSignals=timer()
-   logger.info("get signals of events time: %s Seconds" % (end_getEventSignals - start_getEventSignals))
 
-   start_alignment=timer()
    if moptions['outLevel']<=myCom.OUTPUT_DEBUG: start_time = time.time();
    # for fa files of base sequences from events
    temp_fa = tempfile.NamedTemporaryFile(suffix='.fa', mode='w')
@@ -502,13 +430,10 @@ def mDetect1(moptions, sp_options, f5files):
    f5align = defaultdict()
    f5keydict = defaultdict();
    sp_param['ref_info'] = defaultdict()
-   end_alignment=timer()
-   logger.info("running aligment: %s Seconds" % (end_alignment - start_alignment))
 
    if moptions['outLevel']<=myCom.OUTPUT_DEBUG:start_time = time.time();
    ilid = 0;
-   # get alignment records  not time-consuming
-   # start_handle_line=timer()
+   # get alignment records
    while ilid < len(align_info):
       if len(align_info[ilid])==0 or align_info[ilid][0]=='@':
          ilid += 1
@@ -517,12 +442,9 @@ def mDetect1(moptions, sp_options, f5files):
       sp_param['f5status'] = "";
       sp_param['line'] = align_info[ilid]
       qname = handle_line(moptions, sp_param, f5align)
-
       if sp_param['f5status'] == "":
          f5keydict[qname] = True;
       ilid += 1
-   # end_handle_line=timer()
-   # logger.info("get alignment records time: %s Seconds" % (end_handle_line - start_handle_line))
 
    # get unmapped reads
    for f5k in f5keys:
@@ -537,11 +459,7 @@ def mDetect1(moptions, sp_options, f5files):
    sp_param['f5status']= ""
    sp_param['line'] = ""
    if moptions['outLevel']<=myCom.OUTPUT_DEBUG:start_time = time.time();
-   start_handle_record=timer()
    handle_record(moptions, sp_options, sp_param, f5align, f5data)
-   end_handle_record=timer()
-   logger.info("get features, prediction for each fast5 files time: %s Seconds" % (end_handle_record - start_handle_record))
-
    if moptions['outLevel']<=myCom.OUTPUT_DEBUG:
       end_time = time.time();
       print ("Analyze & annotate & save consuming time %d" % (end_time-start_time))
@@ -568,7 +486,6 @@ def getRefSeq(moptions, sp_param, rname):
 # get mapping information and associate it with events/signals.
 #
 def handle_record(moptions, sp_options, sp_param, f5align, f5data):
-   # logger.info("start getting mapping information and associate it with events/signals.")
    alignkeys = list(f5align.keys());
    numreg = re.compile('\d+')
    mdireg = re.compile('[MIDNSHPX=]{1}')
@@ -592,12 +509,10 @@ def handle_record(moptions, sp_options, sp_param, f5align, f5data):
            break;
      if not isinreg:
         continue;
+
      # get reference information
      if rname not in sp_param['ref_info']:
-        # start_getRefSeq=timer()
         getRefSeq(moptions, sp_param, rname)
-        # end_getRefSeq=timer()
-        # logger.info("get reference information time: %s Seconds" % (end_getRefSeq - start_getRefSeq))
      refseq = sp_param['ref_info'][rname]
 
      # mapped position and strand
@@ -790,19 +705,14 @@ def handle_record(moptions, sp_options, sp_param, f5align, f5data):
          continue;
 
      # get feature
-     # start_get_feature=timer()
      mfeatures,isdif = get_Feature(moptions, sp_options, sp_param, f5align, f5data, readk, leftclip, rightclip, base_map_info, forward_reverse, rname, first_match_pos, numinsert, numdel)
-     # end_get_feature=timer()
-     # logger.info("get feature time: %s Seconds" % (end_get_feature - start_get_feature))
      if isdif and moptions['outLevel']<=myCom.OUTPUT_WARNING:
         print("Dif is true")
         print([lastmatch, firstmatch, first_match_pos, last_match_pos, first_al_match, last_al_match, lasmtind, len(base_map_info), nummismatch, numinsert, numdel, len(base_map_info)-nummismatch-numinsert-numdel])
      if not sp_param['f5status']=="": continue
 
      # generate/save prediction information
-     # start_mPredict1=timer()
      pred_mod_num = mPredict1(moptions, sp_options, sp_param, mfeatures, base_map_info, readk, leftclip, rightclip)
-
      predfile = (sp_options['ctfolder'] if sp_options['ctfolder'][-1] not in ['/', '\\'] else sp_options['ctfolder'][:-1])+'/rnn.pred.detail.fast5'+'.'+str(sp_options['batchid'])
      pred_f5_key = 'pred_'+str(readk_ind)
      sp_options['Mod'].append([rname, forward_reverse, f5align[readk][3]-1, pred_f5_key, f5data[readk][3][len(moptions['wrkBase'])+1:], predfile[len(moptions['outFolder']+moptions['FileID'])+1:]])
@@ -848,11 +758,8 @@ def handle_record(moptions, sp_options, sp_param, f5align, f5data):
          except:
             sp_options["Error"]['Cannot save data'].append(f5data[readk][3])
             print ('Error!!! %s in %s' % ("Cannot save data", f5data[readk][3]))
-     # end_mPredict1=timer()
-     # logger.info("predict and save data time: %s Seconds" % (end_mPredict1 - start_mPredict1))
 
    # save index information
-   start_saveIndex=timer()
    sp_options['Mod'] = sorted(sp_options['Mod'])
    # index file
    pred_ind_file =  (sp_options['ctfolder'] if sp_options['ctfolder'][-1] not in ['/', '\\'] else sp_options['ctfolder'][:-1])+'/%s.' + pre_base_str + '.' + str(sp_options['batchid'])
@@ -873,12 +780,12 @@ def handle_record(moptions, sp_options, sp_param, f5align, f5data):
       if not cur_writer==None:
          cur_writer.flush();
          cur_writer.close()
-   end_saveIndex=timer()
-   logger.info("save index time: %s Seconds" % (end_saveIndex - start_saveIndex))
+
 #
 # make modificatoin prediction for a long read
 #
 def mPredict1(moptions, sp_options, sp_param, mfeatures, base_map_info, readk, start_clip, end_clip):
+   #
    modevents = sp_param['f5data'][readk][1]
    # get features. labels might be all zero
    t0, ty, tx = np.split(mfeatures, [1,3], axis=1);
@@ -991,6 +898,8 @@ def get_Feature(moptions, sp_options, sp_param, f5align, f5data, readk, start_cl
          mfeatures[cur_row_num][cur_index_add + 0] = modevents["mean"][ie]
          mfeatures[cur_row_num][cur_index_add + 1] = modevents["stdv"][ie]
          mfeatures[cur_row_num][cur_index_add + 2] = modevents["length"][ie]
+
+
    return (mfeatures, isdif)
 
 
@@ -1002,7 +911,7 @@ def get_complement(na):
    else: return na;
 
 #
-# get mean/std of signals lx:not_use
+# get mean/std of signals
 #
 def calculate_mean_std(m_event, event_ind, forward_reverse, raw_pv, moptions, sp_param):
    if forward_reverse=='-':
@@ -1037,7 +946,7 @@ def handle_line(moptions, sp_param, f5align):
 # the worker of the detection in a multiprocessing way
 #
 def detect_handler(moptions, h5files_Q, failed_Q, file_map_info_q):
-   start_loadmodule=timer()
+
    _, init_l, _, _, _, X, Y, _, _, _, _, mfpred = myMultiBiRNN.mCreateSession(moptions['fnum'], moptions['hidden'], moptions['windowsize'], moptions)
    config = tf.ConfigProto()
    config.gpu_options.allow_growth = True
@@ -1045,11 +954,8 @@ def detect_handler(moptions, h5files_Q, failed_Q, file_map_info_q):
    # load module
    new_saver = tf.train.import_meta_graph(moptions['modfile'][0]+'.meta')
    new_saver.restore(sess,tf.train.latest_checkpoint(moptions['modfile'][1]))
-   end_loadmodule=timer()
-   logger.info("loadmodule: %s Seconds" % (end_loadmodule - start_loadmodule))
 
    while not h5files_Q.empty():
-
       cur_start_time = time.time()
       try:
          # get fast5 file
@@ -1067,7 +973,6 @@ def detect_handler(moptions, h5files_Q, failed_Q, file_map_info_q):
       sp_options['batchid'] = batchid
 
       sp_options['Mod'] = [];
-
       # make modification prediction for each fast5
       mDetect1(moptions, sp_options, f5files)
       # outputing errors
@@ -1121,7 +1026,6 @@ def read_pred_detail(moptions, sp_options, f5info):
 # summarize modification for each genome position of interest
 #
 def sum_handler(moptions, chr_strand_Q):
-   # logger.info("summarize modification for each genome position of interest:")
    while not chr_strand_Q.empty():
       try:
           # get setting for summarization of predicted modifications
@@ -1131,10 +1035,7 @@ def sum_handler(moptions, chr_strand_Q):
 
       sp_options = {}
       # get prediction files
-      # start_read_file_list=timer()
       read_file_list(cur_cif, cur_chr, cur_strand, sp_options)
-      # end_read_file_list=timer()
-      # logger.info("get prediction files time: %s Seconds" % (end_read_file_list - start_read_file_list))
       sp_options['4NA'] = {moptions['Base']:defaultdict()}
       sp_options['4NAfile'] = {}
       for nak in sp_options['4NA']:
@@ -1144,18 +1045,13 @@ def sum_handler(moptions, chr_strand_Q):
             sp_options['4NAfile'][nak] = ('%s/cluster_mod_pos.%s%s.%s.bed' % (moptions['outFolder'], cur_chr, cur_strand, nak))
 
       cur_start_time = time.time(); hlnum = 0;
-      # start_read_pred_detail=timer()
       for hl in sp_options['handlingList']:
          # read prediction detail for each fast5
-         # start_read_pred_detail=timer()
          m_pred, mapped_chrom, mapped_strand = read_pred_detail(moptions, sp_options, hl)
-         # end_read_pred_detail=timer()
-         # logger.info("read prediction detail time: %s Seconds" % (end_read_pred_detail - start_read_pred_detail))
          if not (mapped_chrom==cur_chr and mapped_strand==cur_strand):
             print("ERRoR not the same chr (real=%s vs expect=%s) and strand (real=%s VS expect=%s)" % (mapped_chrom, cur_chr, mapped_strand, cur_strand))
          #####################################################
          if moptions['mod_cluster']:  # revised; should not used now
-            # logger.info("mod_cluster")
             from numpy.lib.recfunctions import append_fields
             m_pred = append_fields(m_pred, 'mod_pred2', m_pred['mod_pred']+0, usemask=False)
             for mi in range(len(m_pred)):
@@ -1190,7 +1086,6 @@ def sum_handler(moptions, chr_strand_Q):
                if cpgnum>0 and (meth_cpgnum>0 and meth_cpgnum/float(cpgnum)>0.5):
                   m_pred['mod_pred'][mi] = 1
          #####################################################################################
-         # start_sum=timer()
          for mi in range(len(m_pred)):
             # get prediction for each base type
             if m_pred['refbase'][mi] not in sp_options['4NA']: continue;
@@ -1203,14 +1098,12 @@ def sum_handler(moptions, chr_strand_Q):
                sp_options['4NA'][m_pred['refbase'][mi]][(cur_chr, cur_strand, int(m_pred['refbasei'][mi]) )][0] += 1
                if -0.1 < m_pred['mod_pred'][mi]-1 < 0.1:
                   sp_options['4NA'][m_pred['refbase'][mi]][(cur_chr, cur_strand, int(m_pred['refbasei'][mi]) )][1] += 1
-         # end_sum=timer()
-         # logger.info("sum time:%d"%(end_sum-start_sum))
          hlnum += 1
          if hlnum % 1000==0:
             print ("\tCurrent time consuming %d for %d" % (time.time() - cur_start_time, hlnum))
             cur_start_time = time.time()
+
       print ('====sum done! To save')
-      # start_writepred=timer()
       for nak in sp_options['4NA']:
          print ('\tSave %s' % sp_options['4NAfile'][nak])
          if len(sp_options['4NA'][nak])>0:
@@ -1225,14 +1118,10 @@ def sum_handler(moptions, chr_strand_Q):
                                      pk[1], str(pk[2]), str(pk[2]+1), '0,0,0', str(sp_options['4NA'][nak][pk][0]), \
                                      ('%d' % (100*sp_options['4NA'][nak][pk][1]/(sp_options['4NA'][nak][pk][0] if sp_options['4NA'][nak][pk][0]>0 else 1))), \
                                      str(sp_options['4NA'][nak][pk][1]), '\n' ]))
-      # end_writepred=timer()
-      # logger.info("write pred time:%d" % (end_writepred-start_writepred))
-
 #
 # prediction manager of a multiprocess process
 #
 def mDetect_manager(moptions):
-   start_total=timer()
    pmanager = multiprocessing.Manager();
    # get input folder
    while (not moptions['wrkBase']==None) and len(moptions['wrkBase'])>0 and moptions['wrkBase'][-1] in ['/', '\\']:
@@ -1268,7 +1157,6 @@ def mDetect_manager(moptions):
       failed_Q = pmanager.Queue()
 
       # spliting fast5 files into different lists
-      # start_spliting=timer()
       h5_batch = []; h5batchind = 0;
       sub_folder_size = 100; sub_folder_id = 0;
       for f5f in f5files:
@@ -1282,14 +1170,10 @@ def mDetect_manager(moptions):
       if len(h5_batch)>0:
          h5files_Q.put((h5_batch, sub_folder_id, h5batchind))
          h5_batch = []; h5batchind += 1
-      # end_spliting=timer()
-      # logger.info("spliting fast5 files:%d"%(end_spliting-start_spliting))
+
       # start multiprocessing
       share_var = (moptions, h5files_Q, failed_Q, file_map_info_q)
       handlers = []
-      #lx:default threads_num=4
-      start_detect=timer()
-      logger.info("num of threads=%d" % (moptions['threads']))
       for hid in range(moptions['threads']):
          p = multiprocessing.Process(target=detect_handler, args=share_var);
          p.start();
@@ -1305,11 +1189,8 @@ def mDetect_manager(moptions):
          except:
             time.sleep(1);
             continue;
-      end_detect=timer()
-      logger.info("detect time: %s Seconds" % (end_detect - start_detect))
 
-      # prepare modificatoin summary for reference positions of interest lx:not time-consuming
-      # start_prepare_sum=timer()
+      # prepare modificatoin summary for reference positions of interest
       moptions['predpath'] = moptions['outFolder'] + '/'+moptions['FileID']
       pred_ind_pref = moptions['outFolder'] + '/'+moptions['FileID']+'/'+pre_base_str
       pred_chr_files = glob.glob(os.path.join(moptions['outFolder']+moptions['FileID'], '*/*.'+pre_base_str+'.*'))
@@ -1347,8 +1228,7 @@ def mDetect_manager(moptions):
       moptions['outFolder'] = moptions['outFolder']+moptions['FileID']
       end_time = time.time();
       print ("Per-read Prediction consuming time %d" % (end_time-start_time))
-      # end_prepare_sum=timer()
-      # logger.info("prepare modificatoin summary time: %s Seconds" % (end_prepare_sum - start_prepare_sum))
+
    ### for summarizing modificatoin prediction
    start_time = time.time();
    # get all index files of prediction
@@ -1357,19 +1237,15 @@ def mDetect_manager(moptions):
    print (all_chr_ind_files)
 
    # for each chromosome, a thread will be initialized for multiprocessing summarization of modifications
-   # start_initialize=timer()
    chr_strand_Q = pmanager.Queue(); jobnum = 0;
    for cur_cif in all_chr_ind_files:
       chr_strand_Q.put((cur_cif, cur_cif.split(pre_base_str)[-1][1:], '+'))
       chr_strand_Q.put((cur_cif, cur_cif.split(pre_base_str)[-1][1:], '-'))
       jobnum +=2
-   # end_initialize=timer()
-   # logger.info("initialize thread for each chromosome:%d" % (end_initialize-start_initialize))
+
    # star to summarize modificaiton prediction of reference genomes of interest
    share_var = (moptions, chr_strand_Q)
    handlers = []
-   #lx:default threads=4,jobnum=2
-   start_sum=timer()
    for hid in range(moptions['threads'] if moptions['threads']<jobnum else jobnum):
       p = multiprocessing.Process(target=sum_handler, args=share_var);
       p.start();
@@ -1380,17 +1256,14 @@ def mDetect_manager(moptions):
       except:
          time.sleep(1);
          continue;
-   end_sum=timer()
-   logger.info("sum time: %s Seconds" % (end_sum - start_sum))
+
    end_time = time.time();
    print ("Genomic-position Detection consuming time %d" % (end_time-start_time))
 
    os.system('touch '+moptions['outFolder']+'.done')
-   end_total=timer()
-   logger.info("total time: %s Seconds" % (end_total - start_total))
+
 # for independent testing of code
 if __name__=='__main__':
-
 #   if len(sys.argv)>4:
       moptions = {}
       moptions['basecall_1d'] = 'Basecall_1D_000'
@@ -1406,7 +1279,7 @@ if __name__=='__main__':
       moptions['hidden'] = 100;
       moptions['windowsize'] = 21;
 
-      # moptions['threads'] = 8
+      moptions['threads'] = 8
       moptions['threads'] = 1
       moptions['files_per_thread'] = 500
 
