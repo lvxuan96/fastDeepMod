@@ -86,19 +86,21 @@ def get_Event_Signals(moptions, sp_options):
     read_id = mylib.get_read_id(c_char_p(bytes(f5name,'utf-8')), read_id_buf)
     print("read id=", read_id_buf.value.decode("utf-8"))
 
-    class m_event(Structure):
-        _fields_ = [("mean",c_float),
-                ("stdv", c_float),
-                ("start", c_ulonglong),
-                ("length",c_ulonglong),
-                ("model_state", c_char * 3)
-                ]
-    m_event_buf = create_string_buffer(sizeof(m_event) * events_len.value)
+    # class m_event(Structure):
+    #     _fields_ = [("mean",c_float),
+    #             ("stdv", c_float),
+    #             ("start", c_ulonglong),
+    #             ("length",c_ulonglong),
+    #             ("model_state", c_char * 3)
+    #             ]
+    # m_event_buf = create_string_buffer(sizeof(m_event) * events_len.value)
+    raw_signals = (c_float * signal_len.value)()
     m_event_basecall = create_string_buffer(events_len.value)
     mylib.get_basecall.restypes = c_int
-    mylib.get_basecall.argtypes = [c_char_p,c_char_p]
-    read_id = mylib.get_basecall(c_char_p(bytes(f5name,'utf-8')), m_event_basecall)
+    mylib.get_basecall.argtypes = [c_char_p,c_char_p, POINTER(c_float)]
+    read_id = mylib.get_basecall(c_char_p(bytes(f5name,'utf-8')), m_event_basecall, raw_signals)
     # print("m_event_basecall=", m_event_basecall.value.decode("utf-8"))
+    print("raw_signals=", list(raw_signals))
 
 
     return f5data

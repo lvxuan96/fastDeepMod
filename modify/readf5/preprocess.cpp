@@ -1,4 +1,4 @@
-#include <cmath>
+﻿#include <cmath>
 #include <vector>
 #include <string>
 #include <numeric>
@@ -26,7 +26,7 @@ const long long iinfo_int64 = 9223372036854775807;
 
 
 extern "C"
-int get_basecall(char* mfile_path, char* m_event_basecall, vector<M_event> m_event) {
+int get_basecall(char* mfile_path, char* m_event_basecall, float* my_raw_signals) {
 
 	// string mfile_path = "read116.fast5";
 	int signal_len, events_len;
@@ -41,6 +41,7 @@ int get_basecall(char* mfile_path, char* m_event_basecall, vector<M_event> m_eve
     events_len = events.getSpace().getSimpleExtentNpoints();
 	// cout<<"signal_len: "<<signal_len<<" events_len:"<<events_len<<endl;
 	short* raw_signals = new short[signal_len];
+	// float* my_raw_signals = new float[signal_len];
 	unsigned long long start_time = 0;
 	int used_albacore_version = 2;
 	H5std_string channel_number("");
@@ -52,7 +53,6 @@ int get_basecall(char* mfile_path, char* m_event_basecall, vector<M_event> m_eve
 	Events_t * events_data = new Events_t[events_len];
 	readfast5(mfile_path, raw_signals, start_time, used_albacore_version, channel_number, digitisation,
 	offset, range, sampling_rate, fastq_buf, events_data);
-
 	vector<string> fastq_split;
 	String_Split(fastq_buf, '\n', fastq_split);
 	string fq_seq = fastq_split[1];
@@ -62,7 +62,15 @@ int get_basecall(char* mfile_path, char* m_event_basecall, vector<M_event> m_eve
 	string SignalGroup = "simple";
 	string f5status = "";
 
-	get_event(m_event, m_event_basecall, read_id, f5status, mfile_path, SignalGroup, moptions_outLevel, used_albacore_version, fq_seq, raw_signals, &sampling_rate, &start_time,  signal_len, events_len, events_data);
+	get_event(my_raw_signals, m_event_basecall, read_id, f5status, mfile_path, SignalGroup, moptions_outLevel, used_albacore_version, fq_seq, raw_signals, &sampling_rate, &start_time,  signal_len, events_len, events_data);
+
+	fstream fout;
+	fout.open("DataPreprocess.log", ios::out | ios::app);
+	for (int j=0;j<signal_len;j++){
+		fout<<my_raw_signals[j]<<" ";
+	} 
+	fout << endl;
+	fout.close();
 
 	delete []raw_signals;
 	delete []events_data;
@@ -301,7 +309,7 @@ float myround(float num, int precision) {
 	return num;
 }
 
-void get_event(vector<M_event> m_event, char* m_event_basecall, string read_id, string f5status, string mfile_path, string SignalGroup, int moptions_outLevel, int used_albacore_version,const string& fq_seq, short* signals, double* sampling_rate, unsigned long long* start_time, int signal_len, int events_len, Events_t* events_data) {
+void get_event(float* my_raw_signals, char* m_event_basecall, string read_id, string f5status, string mfile_path, string SignalGroup, int moptions_outLevel, int used_albacore_version,const string& fq_seq, short* signals, double* sampling_rate, unsigned long long* start_time, int signal_len, int events_len, Events_t* events_data) {
 	/* get events from a fast5 file */
 	clock_t start, end;
 	double  duration;
@@ -313,7 +321,7 @@ void get_event(vector<M_event> m_event, char* m_event_basecall, string read_id, 
 	int left_right_skip_left = 0;
 	int left_right_skip_right = 0;
 
-	// vector<M_event> m_event;
+	vector<M_event> m_event;
 	if (used_albacore_version == 1) {
 		int move0_left = 0, move0_right = events_len - 1;
 		while (move0_left < move0_right) {
@@ -530,10 +538,11 @@ void get_event(vector<M_event> m_event, char* m_event_basecall, string read_id, 
 		exit(EXIT_FAILURE);
 	}
 
-	float* my_raw_signal = mnormalized(mfile_path, signal_len, signals, events_len, events_data);
+	// my_raw_signal = mnormalized(my_raw_signals, mfile_path, signal_len, signals, events_len, events_data);
+	mnormalized(my_raw_signals, mfile_path, signal_len, signals, events_len, events_data);
 
 	for (int i = 0; i < m_event.size(); i++) {
-		vector<float> Signal_range(my_raw_signal + m_event[i].start, my_raw_signal + m_event[i].start + m_event[i].length);
+		vector<float> Signal_range(my_raw_signals + m_event[i].start, my_raw_signals + m_event[i].start + m_event[i].length);
 		if (Signal_range.size() == 0) {
 			cout << "Signal out of range " << i << ":"
 				<< events_data[i].start << "-" << events_data[i].length << ";" << events_len << "for" << mfile_path << endl;
@@ -552,16 +561,15 @@ void get_event(vector<M_event> m_event, char* m_event_basecall, string read_id, 
 
 	// end = clock();
 	// duration = (double)(end - start) / CLOCKS_PER_SEC;
-	fstream fout;
-	fout.open("DataPreprocess.log", ios::out | ios::app);
-	fout << strlen(m_event_basecall) << endl;
+	// fstream fout;
+	// fout.open("DataPreprocess.log", ios::out | ios::app);
+	// for (int j=0;j<signal_len;j++){
+	// 	fout<<my_raw_signals[j]<<" ";
+	// } 
+	// fout << endl;
 	// fout.close();
 	// printf("%f seconds\n", duration);
 
-	// write_data(fd, f5status, m_event, signals, signal_len, read_id, mfile_path, m_event_basecall, left_right_skip_left, left_right_skip_right);
-	//for (i = 0; i < m_event.size(); i++) {
-	//	cout << m_event[i].mean << " " << m_event[i].start << " " << m_event[i].stdv << " " << m_event[i].length << " " << m_event[i].model_state << endl;
-	//}
 }
 
 vector<M_event> get_EventInfo(int signal_len, int lines_event, short* signals, Events_t* events_data ,const string& fq_seq) {
@@ -739,7 +747,7 @@ float stdvariancec(int signal_len, const short* raw_signals, int begin, int end,
 	return sqrt(stdvariance);
 }
 
-float* mnormalized(string mfile_path, int signal_len, short* raw_signals, int events_len, Events_t *events_data) {
+void mnormalized(float* my_raw_signals, string mfile_path, int signal_len, short* raw_signals, int events_len, Events_t *events_data) {
 	/* for normalizing raw_signals */
 	if (events_data[0].start >= events_data[events_len-1].start + events_data[events_len-1].length) {
 		cout << "Fatal error signal start position is less than the end position.\n" << " The path is " << mfile_path
@@ -761,7 +769,7 @@ float* mnormalized(string mfile_path, int signal_len, short* raw_signals, int ev
 	vsscale.erase(vsscale.begin(), vsscale.end());
 	vfscale.erase(vfscale.begin(), vfscale.end());
 	// standardize
-	float* my_raw_signals = new float[signal_len];
+	// float* my_raw_signals = new float[signal_len];
 	for (int i = 0; i < signal_len; i++) {
 		my_raw_signals[i] = (raw_signals[i] - mshift) / mscale;
 	}
@@ -796,7 +804,7 @@ float* mnormalized(string mfile_path, int signal_len, short* raw_signals, int ev
 		// cout << my_raw_signals[i] << " ";
 	}
 //	cout << endl;
-	return my_raw_signals;
+	// return my_raw_signals;
 }
 
 template <typename T>

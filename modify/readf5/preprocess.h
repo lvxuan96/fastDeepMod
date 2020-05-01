@@ -41,7 +41,7 @@ string Upper(string str, int length);
 float myround(float num, int precision);
 /* for rounding up */
 
-void get_event(vector<M_event> m_event, char* m_event_basecall, string read_id, string f5status, string mfile_path, string SignalGroup, int moptions_outLevel, int used_albacore_version, const string& fq_seq, short* signals, double* sampling_rate, unsigned long long* start_time, int signal_len, int events_len, Events_t* events_data);
+void get_event(float* my_raw_signal, char* m_event_basecall, string read_id, string f5status, string mfile_path, string SignalGroup, int moptions_outLevel, int used_albacore_version, const string& fq_seq, short* signals, double* sampling_rate, unsigned long long* start_time, int signal_len, int events_len, Events_t* events_data);
 /* get events from a fast5 file */
 
 vector<M_event> get_EventInfo(int signal_len, int lines_event, short* signals, Events_t* events_data, const string& fq_seq);
@@ -66,8 +66,9 @@ float variance(int signal_len, const short* raw_signals, int begin, int end, flo
 float stdvariancec(int signal_len, const short* raw_signals, int begin, int end, float mean);
 /* for calculating the standard variance of raw_signals */
 
-float* mnormalized(string mfile_path, int signal_len, short* raw_signals, int events_len, Events_t* events_data);
+// float* mnormalized(string mfile_path, int signal_len, short* raw_signals, int events_len, Events_t* events_data);
 /* for normalizing raw_signals */
+void mnormalized(float* my_raw_signals, string mfile_path, int signal_len, short* raw_signals, int events_len, Events_t *events_data);
 
 template <typename T>
 float median(vector<T>& vt);
