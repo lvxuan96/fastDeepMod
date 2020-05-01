@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <malloc.h>
 
 #include "H5Cpp.h"
 
@@ -26,7 +27,8 @@ const long long iinfo_int64 = 9223372036854775807;
 
 
 extern "C"
-int get_basecall(char* mfile_path, char* m_event_basecall, float* my_raw_signals, int& left_right_skip_left, int& left_right_skip_right) {
+int get_basecall(char* mfile_path, char* m_event_basecall, float* my_raw_signals, 
+int& left_right_skip_left, int& left_right_skip_right, M_event* m_event_ptr) {
 
 	// string mfile_path = "read116.fast5";
 	int signal_len, events_len;
@@ -62,12 +64,18 @@ int get_basecall(char* mfile_path, char* m_event_basecall, float* my_raw_signals
 	string SignalGroup = "simple";
 	string f5status = "";
 
-	get_event(my_raw_signals, m_event_basecall, read_id, f5status, mfile_path, SignalGroup, moptions_outLevel, used_albacore_version, fq_seq, raw_signals, &sampling_rate, &start_time,  signal_len, events_len, events_data, left_right_skip_left, left_right_skip_right);
-
+	vector<M_event> m_event = get_event(my_raw_signals, m_event_basecall, read_id, f5status, mfile_path, SignalGroup, moptions_outLevel, used_albacore_version, fq_seq, raw_signals, &sampling_rate, &start_time,  signal_len, events_len, events_data, left_right_skip_left, left_right_skip_right);
+	for(unsigned int j = 0;j<events_len;j++){
+		m_event_ptr[j].mean = m_event[j].mean;
+		m_event_ptr[j].stdv = m_event[j].stdv;
+		m_event_ptr[j].start = m_event[j].start;
+		m_event_ptr[j].length = m_event[j].length;
+		strcpy(m_event_ptr[j].model_state, m_event[j].model_state);
+	}
 	// fstream fout;
 	// fout.open("DataPreprocess.log", ios::out | ios::app);
-	// for (int j=0;j<signal_len;j++){
-	// 	fout<<my_raw_signals[j]<<" ";
+	// for (int j=0;j<events_len;j++){
+	// 	fout<<m_event[j].mean<<" "<<m_event[j].stdv<<" "<<m_event[j].start<<" "<<m_event[j].length<<" "<<m_event[j].model_state<<endl;
 	// } 
 	// fout << endl;
 	// fout.close();
@@ -309,7 +317,7 @@ float myround(float num, int precision) {
 	return num;
 }
 
-void get_event(float* my_raw_signals, char* m_event_basecall, string read_id, string f5status, string mfile_path, string SignalGroup, int moptions_outLevel, int used_albacore_version,const string& fq_seq, short* signals, double* sampling_rate, unsigned long long* start_time, int signal_len, int events_len, 
+vector<M_event> get_event(float* my_raw_signals, char* m_event_basecall, string read_id, string f5status, string mfile_path, string SignalGroup, int moptions_outLevel, int used_albacore_version,const string& fq_seq, short* signals, double* sampling_rate, unsigned long long* start_time, int signal_len, int events_len, 
 		Events_t* events_data, int& left_right_skip_left, int& left_right_skip_right) {
 	/* get events from a fast5 file */
 	clock_t start, end;
@@ -538,7 +546,8 @@ void get_event(float* my_raw_signals, char* m_event_basecall, string read_id, st
 		fprintf(stderr, "This version of Albacore is not supported. Please use the version of Albacore 1.x or 2.x");
 		exit(EXIT_FAILURE);
 	}
-
+	
+	
 	// my_raw_signal = mnormalized(my_raw_signals, mfile_path, signal_len, signals, events_len, events_data);
 	mnormalized(my_raw_signals, mfile_path, signal_len, signals, events_len, events_data);
 
@@ -564,13 +573,14 @@ void get_event(float* my_raw_signals, char* m_event_basecall, string read_id, st
 	// duration = (double)(end - start) / CLOCKS_PER_SEC;
 	// fstream fout;
 	// fout.open("DataPreprocess.log", ios::out | ios::app);
-	// for (int j=0;j<signal_len;j++){
-	// 	fout<<my_raw_signals[j]<<" ";
+	// for (int j=0;j<events_len;j++){
+	// 	fout<<"model_state: "<<m_event[j].model_state<<endl;
 	// } 
 	// fout << endl;
 	// fout.close();
+	// fout.close();
 	// printf("%f seconds\n", duration);
-
+	return m_event;
 }
 
 vector<M_event> get_EventInfo(int signal_len, int lines_event, short* signals, Events_t* events_data ,const string& fq_seq) {

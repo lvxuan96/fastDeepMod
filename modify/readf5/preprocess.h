@@ -41,7 +41,7 @@ string Upper(string str, int length);
 float myround(float num, int precision);
 /* for rounding up */
 
-void get_event(float* my_raw_signals, char* m_event_basecall, string read_id, string f5status, string mfile_path, string SignalGroup, int moptions_outLevel, int used_albacore_version,const string& fq_seq, short* signals, double* sampling_rate, unsigned long long* start_time, int signal_len, int events_len, 
+vector<M_event> get_event(float* my_raw_signals, char* m_event_basecall, string read_id, string f5status, string mfile_path, string SignalGroup, int moptions_outLevel, int used_albacore_version,const string& fq_seq, short* signals, double* sampling_rate, unsigned long long* start_time, int signal_len, int events_len, 
 		Events_t* events_data, int& left_right_skip_left, int& left_right_skip_right);
 /* get events from a fast5 file */
 

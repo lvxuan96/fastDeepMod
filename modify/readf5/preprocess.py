@@ -86,25 +86,28 @@ def get_Event_Signals(moptions, sp_options):
     read_id = mylib.get_read_id(c_char_p(bytes(f5name,'utf-8')), read_id_buf)
     print("read id=", read_id_buf.value.decode("utf-8"))
 
-    # class m_event(Structure):
-    #     _fields_ = [("mean",c_float),
-    #             ("stdv", c_float),
-    #             ("start", c_ulonglong),
-    #             ("length",c_ulonglong),
-    #             ("model_state", c_char * 3)
-    #             ]
-    # m_event_buf = create_string_buffer(sizeof(m_event) * events_len.value)
+    class M_event(Structure):
+        _fields_ = [("mean",c_float),
+                ("stdv", c_float),
+                ("start", c_ulonglong),
+                ("length",c_ulonglong),
+                ("model_state", c_char * 6)
+                ]
+    m_event_buf = (M_event * events_len.value)()
     
     m_event_basecall = create_string_buffer(events_len.value)
     raw_signals = (c_float * signal_len.value)()
     left_right_skip_left = c_int()
     left_right_skip_right = c_int()
     mylib.get_basecall.restypes = c_int
-    mylib.get_basecall.argtypes = [c_char_p,c_char_p, POINTER(c_float), POINTER(c_int), POINTER(c_int)]
-    read_id = mylib.get_basecall(c_char_p(bytes(f5name,'utf-8')), m_event_basecall, raw_signals, byref(left_right_skip_left), byref(left_right_skip_right))
+    mylib.get_basecall.argtypes = [c_char_p,c_char_p, POINTER(c_float), POINTER(c_int), POINTER(c_int), POINTER(M_event)]
+    read_id = mylib.get_basecall(c_char_p(bytes(f5name,'utf-8')), m_event_basecall, raw_signals, 
+                byref(left_right_skip_left), byref(left_right_skip_right), m_event_buf)
     # print("m_event_basecall=", m_event_basecall.value.decode("utf-8"))
     # print("raw_signals=", list(raw_signals))
-    print("left_right_skip_left=",left_right_skip_left.value, "left_right_skip_right=",left_right_skip_right.value)
+    # print("left_right_skip_left=",left_right_skip_left.value, "left_right_skip_right=",left_right_skip_right.value)
+    # m_event_buf = list(m_event_buf)
+    print(m_event_buf[0].mean, m_event_buf[0].length, m_event_buf[0].model_state.decode("utf-8"))
 
 
     return f5data
