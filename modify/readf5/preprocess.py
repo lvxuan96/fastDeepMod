@@ -94,13 +94,17 @@ def get_Event_Signals(moptions, sp_options):
     #             ("model_state", c_char * 3)
     #             ]
     # m_event_buf = create_string_buffer(sizeof(m_event) * events_len.value)
-    raw_signals = (c_float * signal_len.value)()
+    
     m_event_basecall = create_string_buffer(events_len.value)
+    raw_signals = (c_float * signal_len.value)()
+    left_right_skip_left = c_int()
+    left_right_skip_right = c_int()
     mylib.get_basecall.restypes = c_int
-    mylib.get_basecall.argtypes = [c_char_p,c_char_p, POINTER(c_float)]
-    read_id = mylib.get_basecall(c_char_p(bytes(f5name,'utf-8')), m_event_basecall, raw_signals)
+    mylib.get_basecall.argtypes = [c_char_p,c_char_p, POINTER(c_float), POINTER(c_int), POINTER(c_int)]
+    read_id = mylib.get_basecall(c_char_p(bytes(f5name,'utf-8')), m_event_basecall, raw_signals, byref(left_right_skip_left), byref(left_right_skip_right))
     # print("m_event_basecall=", m_event_basecall.value.decode("utf-8"))
-    print("raw_signals=", list(raw_signals))
+    # print("raw_signals=", list(raw_signals))
+    print("left_right_skip_left=",left_right_skip_left.value, "left_right_skip_right=",left_right_skip_right.value)
 
 
     return f5data
