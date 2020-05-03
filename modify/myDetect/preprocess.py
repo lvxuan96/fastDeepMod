@@ -64,6 +64,7 @@ def mDetect1(moptions, sp_options):
 def get_Event_Signals(moptions, sp_options):
 
     f5data = {}
+    sp_param = {}
     sp_options["Error"] = defaultdict(list)
     sp_options["get_albacore_version"] = defaultdict(int)
 
@@ -74,7 +75,7 @@ def get_Event_Signals(moptions, sp_options):
     signal_len = c_int()
     events_len = c_int()
     mylib.get_f5len(c_char_p(bytes(f5name,'utf-8')), byref(signal_len), byref(events_len))
-    print('signal_len=', signal_len.value, 'events_len=', events_len.value)
+    print('signal_len=', signal_len.value, "events_len= ", events_len.value)
     
 
     
@@ -91,27 +92,32 @@ def get_Event_Signals(moptions, sp_options):
     raw_signals = (c_float * signal_len.value)()
     left_right_skip_left = c_int()
     left_right_skip_right = c_int()
+    m_events_size = c_int()
 
     mylib.get_event_signals.restypes = c_int
-    mylib.get_event_signals.argtypes = [c_char_p, c_char_p, c_char_p, POINTER(c_float), POINTER(c_int), POINTER(c_int), POINTER(M_event)]
+    mylib.get_event_signals.argtypes = [c_char_p, c_char_p, c_char_p, POINTER(c_float), POINTER(c_int), POINTER(c_int), POINTER(M_event), POINTER(c_int)]
     returnstatus = mylib.get_event_signals(c_char_p(bytes(f5name,'utf-8')), m_event_basecall, read_id_buf,
-        raw_signals, byref(left_right_skip_left), byref(left_right_skip_right), m_event_buf)
+        raw_signals, byref(left_right_skip_left), byref(left_right_skip_right), m_event_buf, byref(m_events_size))
+    print("m_event size=", m_events_size.value)
     # print("read id=", read_id_buf.value.decode("utf-8"))
-    # print("m_event_basecall=", m_event_basecall.value.decode("utf-8"))
+    print("len of m_event_basecall=", len(m_event_basecall.value.decode("utf-8")))
     # print("raw_signals=", list(raw_signals))
     # print("left_right_skip_left=",left_right_skip_left.value, "left_right_skip_right=",left_right_skip_right.value)
     # m_event_buf = list(m_event_buf)
-    print(m_event_buf[45836].mean, m_event_buf[45836].length, m_event_buf[45836].model_state.decode("utf-8"))
-    
+    print("len m_event_buf=", len(m_event_buf))
+    # print(m_event_buf[m_events_size.value-1].mean, m_event_buf[m_events_size.value-1].length, m_event_buf[m_events_size.value-1].model_state.decode("utf-8"))
+    m_event = []
+    for i in range(m_events_size.value):
+        m_event.append((round(m_event_buf[i].mean,3), round(m_event_buf[i].stdv,3), m_event_buf[i].start, m_event_buf[i].length, m_event_buf[i].model_state.decode("utf-8")))
+    m_event = np.array(m_event, dtype=[('mean', '<f4'), ('stdv', '<f4'), ('start', np.uint64), ('length', np.uint64), ('model_state', 'U5')])
+    sp_param['m_event'] = m_event
+    print(sp_param['m_event'])
+
     # bufsize=memoryview(m_event_buf).itemsize
     # bufform = memoryview(m_event_buf)
     # print(bufsize)
     # print(bufform.format)
-    # m_event = np.ctypeslib.as_array(m_event_buf, events_len.value)
-   
-    
-    
-    
+    # m_event = np.ctypeslib.as_array(m_event_buf, events_len.value) 
 
     return f5data
 

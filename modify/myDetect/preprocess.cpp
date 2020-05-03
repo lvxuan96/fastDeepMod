@@ -40,7 +40,7 @@ void get_f5len(char* f5name, int& signal_len, int& events_len){
 
 
 extern "C"
-int get_event_signals(char* mfile_path, char* m_event_basecall,char* read_id_buf, float* my_raw_signals, int& left_right_skip_left, int& left_right_skip_right, M_event* m_event_ptr) {
+int get_event_signals(char* mfile_path, char* m_event_basecall,char* read_id_buf, float* my_raw_signals, int& left_right_skip_left, int& left_right_skip_right, M_event* m_event_ptr, int& m_event_size) {
 
     int signal_len, events_len;
 	H5File file = H5File(mfile_path, H5F_ACC_RDONLY);
@@ -121,8 +121,8 @@ int get_event_signals(char* mfile_path, char* m_event_basecall,char* read_id_buf
 	SignalGroup, moptions_outLevel, used_albacore_version, fq_seq, raw_signals, &sampling_rate_buf, &start_time,
 	signal_len, events_len, events_data, left_right_skip_left, left_right_skip_right);
 
-
-	for(unsigned int j = 0;j<events_len;j++){
+	m_event_size = m_event.size();
+	for(unsigned int j = 0;j<m_event.size();j++){
 		m_event_ptr[j].mean = m_event[j].mean;
 		m_event_ptr[j].stdv = m_event[j].stdv;
 		m_event_ptr[j].start = m_event[j].start;
@@ -399,6 +399,7 @@ vector<M_event> get_event(float* my_raw_signals, char* m_event_basecall, string 
 		}
 		const char* m_event_basecall_data = m_event_basecall_str.data();
 		strcpy(m_event_basecall, m_event_basecall_data);
+		cout<<"len of m_event_basecall: "<<strlen(m_event_basecall)<<endl;
 
 		// sp_param['left_right_skip']
 		left_right_skip_left = 0;
