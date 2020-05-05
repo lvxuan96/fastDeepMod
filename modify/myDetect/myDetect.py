@@ -8,10 +8,11 @@ import copy
 import h5py
 import numpy as np
 import multiprocessing
+import ctypes
+from ctypes import *
 
 from collections import defaultdict
 from distutils.version import LooseVersion
-from ctypes import *
 
 import tempfile
 import subprocess
@@ -55,13 +56,13 @@ pre_base_str = 'rnn.pred.ind'
 #
 # get digitisation, offset, range, sampling_rate from fast5 files
 #
-# def get_channel_info(moptions, sp_param):
-#    if not sp_param['f5status']=="": return;
-#    try:
-#       channel_info = sp_param['f5reader'][fast5_channel_id].attrs
-#       sp_param["channel_info"] = {'digitisation':channel_info['digitisation'], 'offset':channel_info['offset'], 'range':channel_info['range'], 'sampling_rate':channel_info['sampling_rate'], 'channel_number':channel_info['channel_number']}
-#    except:
-#       raiseError("No Channel Info", sp_param, "No Channel Info")
+def get_channel_info(moptions, sp_param):
+   if not sp_param['f5status']=="": return;
+   try:
+      channel_info = sp_param['f5reader'][fast5_channel_id].attrs
+      sp_param["channel_info"] = {'digitisation':channel_info['digitisation'], 'offset':channel_info['offset'], 'range':channel_info['range'], 'sampling_rate':channel_info['sampling_rate'], 'channel_number':channel_info['channel_number']}
+   except:
+      raiseError("No Channel Info", sp_param, "No Channel Info")
 
 # print error message
 def raiseError(sp_info, sp_param, errk):
@@ -73,339 +74,295 @@ def raiseError(sp_info, sp_param, errk):
 # get Albacore version used
 # only support v1+ and v2+
 #
-# def getAlbacoreVersion(moptions, sp_param):
-#    if not sp_param['f5status']=="": return;
-#    try:
-#       ver_path = ''.join([fast5_analysis,'/', moptions['basecall_1d'] ])
-#       #add .decode("utf-8")  to make it compatible to py3
-#       try:
-#          used_version = LooseVersion(sp_param['f5reader'][ver_path].attrs['version'].decode("utf-8")  if 'version' in sp_param['f5reader'][ver_path].attrs else "0.0")
-#       except:
-#          used_version = LooseVersion(sp_param['f5reader'][ver_path].attrs['version']  if 'version' in sp_param['f5reader'][ver_path].attrs else "0.0")
-#       sp_param['get_albacore_version'] = used_version
-#       if used_version < LooseVersion("1.0"): #
-#          sp_param['used_albacore_version'] = 1;
-#       elif used_version < LooseVersion("2.0"): sp_param['used_albacore_version'] = 1;
-#       elif used_version >= LooseVersion("2.0"): sp_param['used_albacore_version'] = 2;
-#    except: # default verion is 1 now
-#       sp_param['used_albacore_version'] = 1;
+def getAlbacoreVersion(moptions, sp_param):
+   if not sp_param['f5status']=="": return;
+   try:
+      ver_path = ''.join([fast5_analysis,'/', moptions['basecall_1d'] ])
+      #add .decode("utf-8")  to make it compatible to py3
+      try:
+         used_version = LooseVersion(sp_param['f5reader'][ver_path].attrs['version'].decode("utf-8")  if 'version' in sp_param['f5reader'][ver_path].attrs else "0.0")
+      except:
+         used_version = LooseVersion(sp_param['f5reader'][ver_path].attrs['version']  if 'version' in sp_param['f5reader'][ver_path].attrs else "0.0")
+      sp_param['get_albacore_version'] = used_version
+      if used_version < LooseVersion("1.0"): #
+         sp_param['used_albacore_version'] = 1;
+      elif used_version < LooseVersion("2.0"): sp_param['used_albacore_version'] = 1;
+      elif used_version >= LooseVersion("2.0"): sp_param['used_albacore_version'] = 2;
+   except: # default verion is 1 now
+      sp_param['used_albacore_version'] = 1;
 
 
 # not used now.
-# def get_kmer_corrected_info(moptions):
-#    if ('kmer_model_file' not in moptions) or moptions['kmer_model_file']==None or (not os.path.isfile(moptions['kmer_model_file'])): return;
+def get_kmer_corrected_info(moptions):
+   if ('kmer_model_file' not in moptions) or moptions['kmer_model_file']==None or (not os.path.isfile(moptions['kmer_model_file'])): return;
 
-#    fr = open(moptions['kmer_model_file'], 'r')
-#    moptions['kmer_model_dict'] = defaultdict()
-#    line = fr.readline();
-#    while line:
-#       line = string.strip(line);
-#       if len(line)>0 and (not line[0]=='#'):
-#          try:
-#             c_kmer, c_level_mean, c_level_stdv = line.split()[:3]
-#             c_level_mean, c_level_stdv = float(c_level_mean), float(c_level_stdv)
-#             moptions['kmer_model_dict'][c_kmer] = (c_level_mean, 1/(c_level_stdv*c_level_stdv))
-#          except:
-#             pass;
-#       line = fr.readline();
-#    fr.close();
+   fr = open(moptions['kmer_model_file'], 'r')
+   moptions['kmer_model_dict'] = defaultdict()
+   line = fr.readline();
+   while line:
+      line = string.strip(line);
+      if len(line)>0 and (not line[0]=='#'):
+         try:
+            c_kmer, c_level_mean, c_level_stdv = line.split()[:3]
+            c_level_mean, c_level_stdv = float(c_level_mean), float(c_level_stdv)
+            moptions['kmer_model_dict'][c_kmer] = (c_level_mean, 1/(c_level_stdv*c_level_stdv))
+         except:
+            pass;
+      line = fr.readline();
+   fr.close();
 
 # not used now
 # get shift and scale values for normalization
 #
-# def get_cur_shift_scale(moptions, sp_param):
-#    if not sp_param['f5status']=="": return;
-#    if "kmer_model_dict" not in moptions: return;
+def get_cur_shift_scale(moptions, sp_param):
+   if not sp_param['f5status']=="": return;
+   if "kmer_model_dict" not in moptions: return;
 
-#    event_key = 'm_event'
+   event_key = 'm_event'
 
-#    try:
-#       cur_model = np.array([moptions['kmer_model_dict'][c_model_state] for c_model_state in sp_param[event_key]['model_state']], dtype=[('level_mean', np.float), ('level_stdv', np.float)]);
-#       c_mean_stdv = cur_model['level_mean']*cur_model['level_stdv']
-#       c_mean_stdv_sum = c_mean_stdv.sum()
-#       model_coef_matrix = np.array(( (cur_model['level_stdv'].sum(), c_mean_stdv_sum), \
-#                                      (c_mean_stdv_sum, (c_mean_stdv*cur_model['level_mean']).sum()) \
-#                                   ))
-#       c_event_stdv = sp_param[event_key]['mean'] * cur_model['level_stdv']
-#       c_event_stdv_mean = c_event_stdv * cur_model['level_mean']
-#       dependent_array = np.array((c_event_stdv.sum(), c_event_stdv_mean.sum()));
+   try:
+      cur_model = np.array([moptions['kmer_model_dict'][c_model_state] for c_model_state in sp_param[event_key]['model_state']], dtype=[('level_mean', np.float), ('level_stdv', np.float)]);
+      c_mean_stdv = cur_model['level_mean']*cur_model['level_stdv']
+      c_mean_stdv_sum = c_mean_stdv.sum()
+      model_coef_matrix = np.array(( (cur_model['level_stdv'].sum(), c_mean_stdv_sum), \
+                                     (c_mean_stdv_sum, (c_mean_stdv*cur_model['level_mean']).sum()) \
+                                  ))
+      c_event_stdv = sp_param[event_key]['mean'] * cur_model['level_stdv']
+      c_event_stdv_mean = c_event_stdv * cur_model['level_mean']
+      dependent_array = np.array((c_event_stdv.sum(), c_event_stdv_mean.sum()));
 
-#       sp_param['shift_scale'] = {}
-#       sp_param['shift_scale']['cal_shift'], sp_param['shift_scale']['cal_scale'] = np.linalg.solve(model_coef_matrix, dependent_array)
-#       sp_param['shift_scale']['chn_shift'], sp_param['shift_scale']['chn_scale'] = -sp_param["channel_info"]['offset'], sp_param["channel_info"]['digitisation']/sp_param["channel_info"]['range']
+      sp_param['shift_scale'] = {}
+      sp_param['shift_scale']['cal_shift'], sp_param['shift_scale']['cal_scale'] = np.linalg.solve(model_coef_matrix, dependent_array)
+      sp_param['shift_scale']['chn_shift'], sp_param['shift_scale']['chn_scale'] = -sp_param["channel_info"]['offset'], sp_param["channel_info"]['digitisation']/sp_param["channel_info"]['range']
 
-#       sp_param['shift_scale']['shift']=sp_param['shift_scale']['chn_shift']+sp_param['shift_scale']['chn_scale']*sp_param['shift_scale']['cal_shift']
-#       sp_param['shift_scale']['scale']=sp_param['shift_scale']['chn_scale']*sp_param['shift_scale']['cal_scale']
+      sp_param['shift_scale']['shift']=sp_param['shift_scale']['chn_shift']+sp_param['shift_scale']['chn_scale']*sp_param['shift_scale']['cal_shift']
+      sp_param['shift_scale']['scale']=sp_param['shift_scale']['chn_scale']*sp_param['shift_scale']['cal_scale']
 
-#       sp_param['raw_signals'] = np.round(sp_param['raw_signals']/sp_param['shift_scale']['cal_scale'] - sp_param['shift_scale']['cal_shift']/sp_param['shift_scale']['cal_scale'], 6)
-#    except:
-#       raiseError('Cannot nanopore correction', sp_param, "Cannot nanopore correction")
+      sp_param['raw_signals'] = np.round(sp_param['raw_signals']/sp_param['shift_scale']['cal_scale'] - sp_param['shift_scale']['cal_shift']/sp_param['shift_scale']['cal_scale'], 6)
+   except:
+      raiseError('Cannot nanopore correction', sp_param, "Cannot nanopore correction")
 
 #
 # get events from a fast5 file
 #
-# def getEvent(moptions, sp_param):
-#   if not sp_param['f5status']=="": return;
+def getEvent(moptions, sp_param):
+  if not sp_param['f5status']=="": return;
 
-#   # If use move tables intead of event tables
-#   if moptions['move']:
-#       try: # get events from a fast5 file'
-#          mv_str = '/'.join(['', 'Analyses', moptions['basecall_1d'], moptions['basecall_2strand'], 'Move'])
-#          move_data = sp_param['f5reader'][mv_str][()]
-#          sp_param['events_data'] = move_data
-#       except:
-#          raiseError('No move data', sp_param, "No move data")
-#          return;
-#       m_event = MoveTable.getMove_Info(moptions, sp_param, move_data)
-#       sp_param['m_event'] = m_event
-#       # get sequence from events
-#       sp_param['m_event_basecall'] = sp_param['fq_seq']
-#       sp_param['left_right_skip'] = (0, 0)
+  # If use move tables intead of event tables
+  if moptions['move']:
+      try: # get events from a fast5 file'
+         mv_str = '/'.join(['', 'Analyses', moptions['basecall_1d'], moptions['basecall_2strand'], 'Move'])
+         move_data = sp_param['f5reader'][mv_str][()]
+         sp_param['events_data'] = move_data
+      except:
+         raiseError('No move data', sp_param, "No move data")
+         return;
+      m_event = MoveTable.getMove_Info(moptions, sp_param, move_data)
+      sp_param['m_event'] = m_event
+      # get sequence from events
+      sp_param['m_event_basecall'] = sp_param['fq_seq']
+      sp_param['left_right_skip'] = (0, 0)
 
 
-#       return
-#  # End the part of getting move tables
+      return
+ # End the part of getting move tables
 
-#   try: # get events from a fast5 file
-#      event_path = ''.join([fast5_analysis, '/', moptions['basecall_1d'], '/', moptions['basecall_2strand'], '/', fast5_events])
-#      events_data = sp_param['f5reader'][event_path].value
-#      #lx:write events_data
-#      # events_data.tofile('events')
-#      # logger.info("write events_data")
-#   except:
-#      raiseError('No events data', sp_param, "No events data")
-#      return;
+  try: # get events from a fast5 file
+     event_path = ''.join([fast5_analysis, '/', moptions['basecall_1d'], '/', moptions['basecall_2strand'], '/', fast5_events])
+     events_data = sp_param['f5reader'][event_path].value
+     #lx:write events_data
+     # events_data.tofile('events')
+     # logger.info("write events_data")
+  except:
+     raiseError('No events data', sp_param, "No events data")
+     return;
 
-#   convertError = False;
+  convertError = False;
 
-#   if sp_param['f5status'] == "":
-#      sp_param['events_data'] = events_data
-#      if sp_param['used_albacore_version']==1:
-#         move0_left = 0; move0_right = len(events_data)-1;
-#         while move0_left<move0_right: # get the first non-stay event at the left tail
-#            if events_data['move'][move0_left]==0: move0_left += 1;
-#            else: break;
-#         if move0_left>move0_right-20:
-#            raiseError(("Too many move0 at 3'(l%d, r%d)" % (move0_left, move0_right)), sp_param, "Remove too many bases on left")
-#            return;
-#         while move0_right>move0_left: # get the last non-stay event at the right tail
-#            if events_data['move'][move0_right]==0: move0_right -= 1
-#            else: break;
-#         if move0_right<move0_left+20:
-#            raiseError(("Too many move0 at 5'(l%d, r%d)" % (move0_left, move0_right)), sp_param, 'Remove too many bases on right')
-#            return
+  if sp_param['f5status'] == "":
+     sp_param['events_data'] = events_data
+     if sp_param['used_albacore_version']==1:
+        move0_left = 0; move0_right = len(events_data)-1;
+        while move0_left<move0_right: # get the first non-stay event at the left tail
+           if events_data['move'][move0_left]==0: move0_left += 1;
+           else: break;
+        if move0_left>move0_right-20:
+           raiseError(("Too many move0 at 3'(l%d, r%d)" % (move0_left, move0_right)), sp_param, "Remove too many bases on left")
+           return;
+        while move0_right>move0_left: # get the last non-stay event at the right tail
+           if events_data['move'][move0_right]==0: move0_right -= 1
+           else: break;
+        if move0_right<move0_left+20:
+           raiseError(("Too many move0 at 5'(l%d, r%d)" % (move0_left, move0_right)), sp_param, 'Remove too many bases on right')
+           return
 
-#         # get the starting time
-#         based_ind = events_data['start'][move0_left].astype(np.float64)*sp_param["channel_info"]["sampling_rate"] - sp_param['raw_attributes']['start_time']
-#         first_base_index_in_raw_signal = np.round(events_data['start'][move0_left].astype(np.float64)*sp_param["channel_info"]["sampling_rate"]).astype(np.int64) - sp_param['raw_attributes']['start_time']
-#         # get the potential error of the starting time
-#         if first_base_index_in_raw_signal<-2:
-#            raiseError(('The index of the first base is less than -2(%d=%.6f*%d-%d)' % (first_base_index_in_raw_signal, events_data['start'][move0_left].astype(np.float64), sp_param["channel_info"]["sampling_rate"], sp_param['raw_attributes']['start_time'])), sp_param, "The index of the first base is less than -2")
-#            return;
-#         elif first_base_index_in_raw_signal<0:
-#            first_base_index_in_raw_signal = 0
-#            if moptions['outLevel']<=myCom.OUTPUT_INFO: print ('Warning!!! first_base_index_in_raw_signal less than 0 ' + sp_param['mfile_path'])
+        # get the starting time
+        based_ind = events_data['start'][move0_left].astype(np.float64)*sp_param["channel_info"]["sampling_rate"] - sp_param['raw_attributes']['start_time']
+        first_base_index_in_raw_signal = np.round(events_data['start'][move0_left].astype(np.float64)*sp_param["channel_info"]["sampling_rate"]).astype(np.int64) - sp_param['raw_attributes']['start_time']
+        # get the potential error of the starting time
+        if first_base_index_in_raw_signal<-2:
+           raiseError(('The index of the first base is less than -2(%d=%.6f*%d-%d)' % (first_base_index_in_raw_signal, events_data['start'][move0_left].astype(np.float64), sp_param["channel_info"]["sampling_rate"], sp_param['raw_attributes']['start_time'])), sp_param, "The index of the first base is less than -2")
+           return;
+        elif first_base_index_in_raw_signal<0:
+           first_base_index_in_raw_signal = 0
+           if moptions['outLevel']<=myCom.OUTPUT_INFO: print ('Warning!!! first_base_index_in_raw_signal less than 0 ' + sp_param['mfile_path'])
 
-#         first_base_index_in_raw_signal = np.uint64(first_base_index_in_raw_signal)
+        first_base_index_in_raw_signal = np.uint64(first_base_index_in_raw_signal)
 
-#         m_event = []; pre_i = move0_left;
-#         cur_length=(events_data['length'][pre_i]*sp_param["channel_info"]["sampling_rate"]).astype('uint64');
-#         for i in range(move0_left+1, move0_right+1):
-#            if events_data['move'][i]>0: # for non-stay event
-#               if pre_i==move0_left:
-#                  m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), first_base_index_in_raw_signal, cur_length, events_data['model_state'][pre_i].upper()))
-#               else: # calculate starting index in raw signal
-#                  # calculated position
-#                  cal_st = (events_data['start'][pre_i]-events_data['start'][move0_left])*sp_param["channel_info"]["sampling_rate"]+based_ind
-#                  if cal_st<0: print("Wanging Less than 0")
-#                  if cal_st>0 and cal_st - (m_event[-1][2]+ m_event[-1][3])>0 and (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')>0:
-#                     if (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')>2: #
-#                         m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64'),  events_data['model_state'][pre_i].upper()))
-#                         m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), cal_st.astype('uint64'), cur_length, events_data['model_state'][pre_i].upper()))
-#                     else: # for a normal event
-#                         m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')+ cur_length, events_data['model_state'][pre_i].upper()))
-#                  else:
-#                     m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], cur_length, events_data['model_state'][pre_i].upper()))
-#                  if m_event[-1][2]>np.iinfo(np.int64).max-2 or m_event[-1][2]<0:
-#                     if not convertError:
-#                        print ('ex: %.7f*%d=%.0f' % (events_data['start'][move0_left].astype(np.float64), sp_param["channel_info"]["sampling_rate"], events_data['start'][move0_left].astype(np.float64)*sp_param["channel_info"]["sampling_rate"])), sp_param['raw_attributes']['start_time'], sp_param['mfile_path'], m_event[-1][2], m_event[-1][3]
-#                     convertError = True;
-#               pre_i = i;
-#               cur_length=(events_data['length'][i]*sp_param["channel_info"]["sampling_rate"]).astype('uint64');
-#            else: # for stay event
-#               cur_length += (events_data['length'][i]*sp_param["channel_info"]["sampling_rate"]).astype('uint64')
-#         if sp_param['f5status'] == "": # for the last event
-#            # calculated position
-#            cal_st = (events_data['start'][pre_i]-events_data['start'][move0_left])*sp_param["channel_info"]["sampling_rate"]+based_ind
-#            if cal_st<0: print("Wanging Less than 0")
-#            if cal_st>0 and cal_st - (m_event[-1][2]+ m_event[-1][3])>0 and (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')>0:
-#               if (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')>2:
-#                  m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64'),  events_data['model_state'][pre_i].upper()))
-#                  m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), cal_st.astype('uint64'), cur_length, events_data['model_state'][pre_i].upper()))
-#               else:
-#                  m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')+ cur_length, events_data['model_state'][pre_i].upper()))
-#            else:
-#               m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], cur_length, events_data['model_state'][pre_i].upper()))
+        m_event = []; pre_i = move0_left;
+        cur_length=(events_data['length'][pre_i]*sp_param["channel_info"]["sampling_rate"]).astype('uint64');
+        for i in range(move0_left+1, move0_right+1):
+           if events_data['move'][i]>0: # for non-stay event
+              if pre_i==move0_left:
+                 m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), first_base_index_in_raw_signal, cur_length, events_data['model_state'][pre_i].upper()))
+              else: # calculate starting index in raw signal
+                 # calculated position
+                 cal_st = (events_data['start'][pre_i]-events_data['start'][move0_left])*sp_param["channel_info"]["sampling_rate"]+based_ind
+                 if cal_st<0: print("Wanging Less than 0")
+                 if cal_st>0 and cal_st - (m_event[-1][2]+ m_event[-1][3])>0 and (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')>0:
+                    if (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')>2: #
+                        m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64'),  events_data['model_state'][pre_i].upper()))
+                        m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), cal_st.astype('uint64'), cur_length, events_data['model_state'][pre_i].upper()))
+                    else: # for a normal event
+                        m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')+ cur_length, events_data['model_state'][pre_i].upper()))
+                 else:
+                    m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], cur_length, events_data['model_state'][pre_i].upper()))
+                 if m_event[-1][2]>np.iinfo(np.int64).max-2 or m_event[-1][2]<0:
+                    if not convertError:
+                       print ('ex: %.7f*%d=%.0f' % (events_data['start'][move0_left].astype(np.float64), sp_param["channel_info"]["sampling_rate"], events_data['start'][move0_left].astype(np.float64)*sp_param["channel_info"]["sampling_rate"])), sp_param['raw_attributes']['start_time'], sp_param['mfile_path'], m_event[-1][2], m_event[-1][3]
+                    convertError = True;
+              pre_i = i;
+              cur_length=(events_data['length'][i]*sp_param["channel_info"]["sampling_rate"]).astype('uint64');
+           else: # for stay event
+              cur_length += (events_data['length'][i]*sp_param["channel_info"]["sampling_rate"]).astype('uint64')
+        if sp_param['f5status'] == "": # for the last event
+           # calculated position
+           cal_st = (events_data['start'][pre_i]-events_data['start'][move0_left])*sp_param["channel_info"]["sampling_rate"]+based_ind
+           if cal_st<0: print("Wanging Less than 0")
+           if cal_st>0 and cal_st - (m_event[-1][2]+ m_event[-1][3])>0 and (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')>0:
+              if (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')>2:
+                 m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64'),  events_data['model_state'][pre_i].upper()))
+                 m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), cal_st.astype('uint64'), cur_length, events_data['model_state'][pre_i].upper()))
+              else:
+                 m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], (cal_st - (m_event[-1][2]+ m_event[-1][3])).astype('uint64')+ cur_length, events_data['model_state'][pre_i].upper()))
+           else:
+              m_event.append((round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), m_event[-1][2]+ m_event[-1][3], cur_length, events_data['model_state'][pre_i].upper()))
 
-#         # decode
-#         m_event = np.array(m_event, dtype=[('mean', '<f4'), ('stdv', '<f4'), ('start', np.uint64), ('length', np.uint64), ('model_state', 'U5')]) #'S5')]
-#         sp_param['m_event'] = m_event
-#         # get sequence from events
-#         sp_param['m_event_basecall'] = ''.join([event_model_state[2] for event_model_state in m_event['model_state']]);
-#         sp_param['left_right_skip'] = (move0_left, len(events_data)-move0_right-1)
-#      elif sp_param['used_albacore_version']==2:
-#         if moptions['SignalGroup']=='simple':
-#            m_event = [];
-#            pre_i = 0; pre_length = events_data['length'][pre_i].astype('uint64');
-#            for cur_i in range(1, len(events_data)):
-#               if events_data['move'][cur_i]>0: # non-stay vents
-#                  m_event.append( (round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), events_data['start'][pre_i], pre_length, events_data['model_state'][pre_i]) )
+        # decode
+        m_event = np.array(m_event, dtype=[('mean', '<f4'), ('stdv', '<f4'), ('start', np.uint64), ('length', np.uint64), ('model_state', 'U5')]) #'S5')]
+        sp_param['m_event'] = m_event
+        # get sequence from events
+        sp_param['m_event_basecall'] = ''.join([event_model_state[2] for event_model_state in m_event['model_state']]);
+        sp_param['left_right_skip'] = (move0_left, len(events_data)-move0_right-1)
+     elif sp_param['used_albacore_version']==2:
+        if moptions['SignalGroup']=='simple':
+           m_event = [];
+           pre_i = 0; pre_length = events_data['length'][pre_i].astype('uint64');
+           for cur_i in range(1, len(events_data)):
+              if events_data['move'][cur_i]>0: # non-stay vents
+                 m_event.append( (round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), events_data['start'][pre_i], pre_length, events_data['model_state'][pre_i]) )
 
-#                  pre_i = cur_i; pre_length = events_data['length'][pre_i].astype('uint64');
-#               else: # for stay events
-#                  pre_length += events_data['length'][cur_i].astype('uint64');
-#            m_event.append( (round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), events_data['start'][pre_i], pre_length, events_data['model_state'][pre_i]) )
-#            # format events
-#            m_event = np.array(m_event, dtype=[('mean', '<f4'), ('stdv', '<f4'), ('start', np.uint64), ('length', np.uint64), ('model_state', 'U5')])
-#         else:
-#            m_event = EventTable.getEvent_Info(moptions, sp_param, events_data)
+                 pre_i = cur_i; pre_length = events_data['length'][pre_i].astype('uint64');
+              else: # for stay events
+                 pre_length += events_data['length'][cur_i].astype('uint64');
+           m_event.append( (round(events_data['mean'][pre_i],3), round(events_data['stdv'][pre_i],3), events_data['start'][pre_i], pre_length, events_data['model_state'][pre_i]) )
+           # format events
+           m_event = np.array(m_event, dtype=[('mean', '<f4'), ('stdv', '<f4'), ('start', np.uint64), ('length', np.uint64), ('model_state', 'U5')])
+        else:
+           m_event = EventTable.getEvent_Info(moptions, sp_param, events_data)
 
-#         sp_param['m_event'] = m_event
-#         # get sequence from events
-#         sp_param['m_event_basecall'] = ''.join([event_model_state[2] for event_model_state in m_event['model_state']]);
-#         sp_param['left_right_skip'] = (0, 0)
-#      else:
-#         raise RuntimeError ("This version of Albacore is not supported. Please use the version of Albacore 1.x or 2.x")
+        sp_param['m_event'] = m_event
+        # get sequence from events
+        sp_param['m_event_basecall'] = ''.join([event_model_state[2] for event_model_state in m_event['model_state']]);
+        sp_param['left_right_skip'] = (0, 0)
+     else:
+        raise RuntimeError ("This version of Albacore is not supported. Please use the version of Albacore 1.x or 2.x")
 
 #
 # normalize raw signals
 #
-# def mnormalized(moptions, sp_param):
+def mnormalized(moptions, sp_param):
 
-#    if not sp_param['m_event']['start'][0] < (sp_param['m_event']['start'][-1]+sp_param['m_event']['length'][-1]):
-#       print ('Fatal error signal start position is less than the end position', sp_param['mfile_path'], sp_param['m_event']['start'][0], sp_param['m_event']['start'][-1], sp_param['m_event']['length'][-1])
+   if not sp_param['m_event']['start'][0] < (sp_param['m_event']['start'][-1]+sp_param['m_event']['length'][-1]):
+      print ('Fatal error signal start position is less than the end position', sp_param['mfile_path'], sp_param['m_event']['start'][0], sp_param['m_event']['start'][-1], sp_param['m_event']['length'][-1])
 
-#    # get shift and scale
-#    mshift = np.median(sp_param['raw_signals'][sp_param['m_event']['start'][0]:(sp_param['m_event']['start'][-1]+sp_param['m_event']['length'][-1])])
-#    mscale = np.median(np.abs(sp_param['raw_signals'][sp_param['m_event']['start'][0]:(sp_param['m_event']['start'][-1]+sp_param['m_event']['length'][-1])]-mshift));
-#    # standardize
-#    sp_param['raw_signals'] = (sp_param['raw_signals'] - mshift)/mscale
-#    # get meand
-#    read_med = np.median(sp_param['raw_signals'][sp_param['m_event']['start'][0]:(sp_param['m_event']['start'][-1]+sp_param['m_event']['length'][-1])])
-#    read_mad = np.median(np.abs(sp_param['raw_signals'][sp_param['m_event']['start'][0]:(sp_param['m_event']['start'][-1]+sp_param['m_event']['length'][-1])] - read_med))
-#    lower_lim = read_med - (read_mad * 5)
-#    upper_lim = read_med + (read_mad * 5)
-#    # normalize as nanoraw did.
-#    sp_param['raw_signals'] = np.round(np.array([upper_lim if sp_param['raw_signals'][i]>upper_lim else (lower_lim if sp_param['raw_signals'][i]<lower_lim  else sp_param['raw_signals'][i]) for i in range(np.size(sp_param['raw_signals']))]), 3)
-#    # logger.info("raw_signals:{}".format(sp_param['raw_signals']))
+   # get shift and scale
+   mshift = np.median(sp_param['raw_signals'][sp_param['m_event']['start'][0]:(sp_param['m_event']['start'][-1]+sp_param['m_event']['length'][-1])])
+   mscale = np.median(np.abs(sp_param['raw_signals'][sp_param['m_event']['start'][0]:(sp_param['m_event']['start'][-1]+sp_param['m_event']['length'][-1])]-mshift));
+   # standardize
+   sp_param['raw_signals'] = (sp_param['raw_signals'] - mshift)/mscale
+   # get meand
+   read_med = np.median(sp_param['raw_signals'][sp_param['m_event']['start'][0]:(sp_param['m_event']['start'][-1]+sp_param['m_event']['length'][-1])])
+   read_mad = np.median(np.abs(sp_param['raw_signals'][sp_param['m_event']['start'][0]:(sp_param['m_event']['start'][-1]+sp_param['m_event']['length'][-1])] - read_med))
+   lower_lim = read_med - (read_mad * 5)
+   upper_lim = read_med + (read_mad * 5)
+   # normalize as nanoraw did.
+   sp_param['raw_signals'] = np.round(np.array([upper_lim if sp_param['raw_signals'][i]>upper_lim else (lower_lim if sp_param['raw_signals'][i]<lower_lim  else sp_param['raw_signals'][i]) for i in range(np.size(sp_param['raw_signals']))]), 3)
+   # logger.info("raw_signals:{}".format(sp_param['raw_signals']))
 #
 # get Signal from a fast5 file
 #
-# def getRawInfo(moptions, sp_param):
-#    if not sp_param['f5status']=="": return;
+def getRawInfo(moptions, sp_param):
+   if not sp_param['f5status']=="": return;
 
-#    try:
-#       # get attribute of raw signals
-#       for raw_data in sp_param['f5reader'][fast5_rawReads].values(): pass;
-#       sp_param['raw_attributes'] = dict(raw_data.attrs.items())
+   try:
+      # get attribute of raw signals
+      for raw_data in sp_param['f5reader'][fast5_rawReads].values(): pass;
+      sp_param['raw_attributes'] = dict(raw_data.attrs.items())
 
-#       sp_param['raw_signals'] = raw_data['Signal'][()]
-#       #lx:write raw_signals
-#       # sp_param['raw_signals'].tofile('raw_signals')
-#       # logger.info("write raw_signals")
-#    except:
-#       raiseError(("No Raw_reads/Signal data %s" % (fast5_rawReads)), sp_param, "No Raw_reads/Signal")
+      sp_param['raw_signals'] = raw_data['Signal'][()]
+      #lx:write raw_signals
+      # sp_param['raw_signals'].tofile('raw_signals')
+      # logger.info("write raw_signals")
+   except:
+      raiseError(("No Raw_reads/Signal data %s" % (fast5_rawReads)), sp_param, "No Raw_reads/Signal")
 
 #
 # get channel_info, AlbacoreVersion, read_id, Raw Signals, Event from a fast5 file
 #
-# def getFast5Info(moptions, sp_param):
-#    # logger.info("start getting channel_info, AlbacoreVersion, read_id, Raw Signals, Event from a fast5 file.")
-#    # get channel info
-#    # start_getChannelInfo=timer()
-#    get_channel_info(moptions, sp_param)
-#    #lx:sampling_rate
-#    # sampling_rate=sp_param["channel_info"]['sampling_rate']
-#    # sampling_rate = struct.pack("f", sampling_rate)
-#    # logger.info("get sampling_rate")
-#    # end_getChannelInfo=timer()
-#    # logger.info("get ChannelInfo time: %s Seconds" % (end_getChannelInfo - start_getChannelInfo))
-#    if "channel_info" not in sp_param:
-#       raiseError(("Channel information could not be found in %s " % fast5_channel_id), sp_param, "Channel information could not be found")
-#       return;
+def getFast5Info(moptions, sp_param):
+   get_channel_info(moptions, sp_param)
+   if "channel_info" not in sp_param:
+      raiseError(("Channel information could not be found in %s " % fast5_channel_id), sp_param, "Channel information could not be found")
+      return;
 
-#    # get albacore version
-#    # start_getAlbacoreVersion=timer()
-#    getAlbacoreVersion(moptions, sp_param)
-#    #lx:used_albacore_version
-#    # used_albacore_version = sp_param['used_albacore_version']
-#    # used_albacore_version = struct.pack("i", used_albacore_version)
-#    # logger.info("get albacore_version")
-#    # end_getAlbacoreVersion=timer()
-#    # logger.info("get AlbacoreVersion time: %s Seconds" % (end_getAlbacoreVersion - start_getAlbacoreVersion))
-#    if 'used_albacore_version' not in sp_param:
-#       return
+   getAlbacoreVersion(moptions, sp_param)
+   if 'used_albacore_version' not in sp_param:
+      return
 
-#    try:
-#       # get fastq attribute
-#       fq_path = ''.join([fast5_analysis,'/',moptions['basecall_1d'],'/',moptions['basecall_2strand'],'/',fast5_basecall_fq])
-#       fq_data = sp_param['f5reader'][fq_path][()]
-#    except:
-#       raiseError('No Fastq data', sp_param, "No Fastq data")
-#    if sp_param['f5status']=="":
-#       fq_data = (fq_data.decode(encoding="utf-8")).split('\n')
-#       sp_param['read_id'] = (fq_data[0][1:] if fq_data[0][0]=='@' else fq_data[0]).replace(" ", ":::").replace("\t", "|||")
-#       sp_param['fq_seq'] = fq_data[1];
-#       #lx:fq_seq_len
-#       # fq_seq=sp_param['fq_seq']
-#       # fq_seq_len = struct.pack("i", len(fq_seq))
-#       # logger.info("get fq_seq")
-#    # get raw signals
-#    # start_getRawInfo=timer()
-#    getRawInfo(moptions, sp_param)
-#    # end_getRawInfo=timer()
-#    # logger.info("get RawInfo time: %s Seconds"%(end_getRawInfo-start_getRawInfo))
-
-#    # get events
-#    if sp_param['f5status']=="":
-#       # start_getEvent=timer()
-#       getEvent(moptions, sp_param)
-#       #lx:event_start_time
-#       # event_start_time=sp_param['raw_attributes']['start_time']
-#       # event_start_time = struct.pack("i", event_start_time)
-#       # logger.info("get event_start_time")
-#       # end_getEvent=timer()
-#       # logger.info("get Event time: %s Seconds" % (end_getEvent - start_getEvent))
-#        #lx:write other data
-#        # with open('others','a+b') as f:
-#        #    f.write(used_albacore_version)
-#        #    f.write(sampling_rate)
-#        #    f.write(event_start_time)
-#        #    f.write(fq_seq_len)
-#        #    f.write(fq_seq.encode('ascii'))
-#        # logger.info("get other data")
-#    # normalize signals.
-#    if sp_param['f5status']=="":
-#       # start_mnormalized=timer()
-#       mnormalized(moptions, sp_param)
-#       # end_mnormalized=timer()
-#       # logger.info("normalize raw signals time: %s Seconds" % (end_mnormalized - start_mnormalized))
-
-#    if sp_param['f5status']=="":
-#       # get mean, std for each event
-#       # start_getMeanStd=timer()
-#       for i in range(len(sp_param['m_event'])):
-#          if (len(sp_param['raw_signals'][sp_param['m_event']['start'][i]:sp_param['m_event']['start'][i]+sp_param['m_event']['length'][i]])==0):
-#             print ('Signal out of range {}: {}-{} {};{} for {}'.format(i, sp_param['m_event']['start'][i], sp_param['m_event']['length'][i], len(sp_param['m_event']), len(sp_param['raw_signals']), sp_param['mfile_path']))
-#             if i>500:
-#                 sp_param['m_event'] = sp_param['m_event'][:i-1]
-#             else:
-#                 sp_param['f5status']=="Less event"
-#             break;
-#          sp_param['m_event']['mean'][i] = round(np.mean(sp_param['raw_signals'][sp_param['m_event']['start'][i]:sp_param['m_event']['start'][i]+sp_param['m_event']['length'][i]]), 3)
-#          sp_param['m_event']['stdv'][i] = round(np.std(sp_param['raw_signals'][sp_param['m_event']['start'][i]:sp_param['m_event']['start'][i]+sp_param['m_event']['length'][i]]), 3)
-#       # end_getMeanStd=timer()
-#       # logger.info("get mean, std for each event time: %s Seconds" % (end_getMeanStd - start_getMeanStd))
+   try:
+      # get fastq attribute
+      fq_path = ''.join([fast5_analysis,'/',moptions['basecall_1d'],'/',moptions['basecall_2strand'],'/',fast5_basecall_fq])
+      fq_data = sp_param['f5reader'][fq_path][()]
+   except:
+      raiseError('No Fastq data', sp_param, "No Fastq data")
+   if sp_param['f5status']=="":
+      fq_data = (fq_data.decode(encoding="utf-8")).split('\n')
+      sp_param['read_id'] = (fq_data[0][1:] if fq_data[0][0]=='@' else fq_data[0]).replace(" ", ":::").replace("\t", "|||")
+      sp_param['fq_seq'] = fq_data[1];
+   
+   getRawInfo(moptions, sp_param)
+  
+   # get events
+   if sp_param['f5status']=="":
+      # start_getEvent=timer()
+      getEvent(moptions, sp_param)
+   # normalize signals.
+   if sp_param['f5status']=="":
+      mnormalized(moptions, sp_param)
+   if sp_param['f5status']=="":
+      # get mean, std for each event
+      for i in range(len(sp_param['m_event'])):
+         if (len(sp_param['raw_signals'][sp_param['m_event']['start'][i]:sp_param['m_event']['start'][i]+sp_param['m_event']['length'][i]])==0):
+            print ('Signal out of range {}: {}-{} {};{} for {}'.format(i, sp_param['m_event']['start'][i], sp_param['m_event']['length'][i], len(sp_param['m_event']), len(sp_param['raw_signals']), sp_param['mfile_path']))
+            if i>500:
+                sp_param['m_event'] = sp_param['m_event'][:i-1]
+            else:
+                sp_param['f5status']=="Less event"
+            break;
+         sp_param['m_event']['mean'][i] = round(np.mean(sp_param['raw_signals'][sp_param['m_event']['start'][i]:sp_param['m_event']['start'][i]+sp_param['m_event']['length'][i]]), 3)
+         sp_param['m_event']['stdv'][i] = round(np.std(sp_param['raw_signals'][sp_param['m_event']['start'][i]:sp_param['m_event']['start'][i]+sp_param['m_event']['length'][i]]), 3)
+      
 #
 # associate signals for each event in a fast5 file
 #
@@ -413,11 +370,10 @@ def get_Event_Signals(moptions, sp_options, f5files):
    # logger.info("get signals of events: associate signals for each event in a fast5 file")
    if moptions['outLevel']<=myCom.OUTPUT_DEBUG:
       start_time = time.time(); runnum = 0;
-
    f5data = {}
    sp_options["Error"] = defaultdict(list)
    sp_options["get_albacore_version"] = defaultdict(int)
-   mylib = CDLL('preprocess.so')
+   mylib = CDLL('/home/lvxuan/deepmod/fastDeepMod/bin/scripts/preprocess.so')
    class M_event(Structure):
         _fields_ = [("mean",c_float),
                 ("stdv", c_float),
@@ -428,55 +384,50 @@ def get_Event_Signals(moptions, sp_options, f5files):
    # for each fast5 file
    for f5f in f5files:
       try:
+         sp_param = {}
          sp_param['mfile_path'] = f5f
          sp_param['f5status'] = ""
          signal_len = c_int()
          events_len = c_int()
          mylib.get_f5len(c_char_p(bytes(f5f,'utf-8')), byref(signal_len), byref(events_len))
          print('signal_len=', signal_len.value, 'events_len=', events_len.value)
+         
          m_event_buf = (M_event * events_len.value)()
          m_event_basecall = create_string_buffer(events_len.value)
          read_id_buf = create_string_buffer(1000)
          raw_signals = (c_float * signal_len.value)()
          left_right_skip_left = c_int()
          left_right_skip_right = c_int()
+         m_events_size = c_int()
 
          mylib.get_event_signals.restypes = c_int
-         mylib.get_event_signals.argtypes = [c_char_p, c_char_p, c_char_p, POINTER(c_float), POINTER(c_int), POINTER(c_int), POINTER(M_event)]
-         returnstatus = mylib.get_event_signals(c_char_p(bytes(f5name,'utf-8')), m_event_basecall, read_id_buf,
-            raw_signals, byref(left_right_skip_left), byref(left_right_skip_right), m_event_buf)
+         mylib.get_event_signals.argtypes = [c_char_p, c_char_p, c_char_p, POINTER(c_float), POINTER(c_int), POINTER(c_int), POINTER(M_event), POINTER(c_int)]
+         returnstatus = mylib.get_event_signals(c_char_p(bytes(f5f,'utf-8')), m_event_basecall, read_id_buf,
+            raw_signals, byref(left_right_skip_left), byref(left_right_skip_right), m_event_buf, byref(m_events_size))
+         print("m_event size=", m_events_size.value)
          sp_param['read_id'] = read_id_buf.value.decode("utf-8")
+         print("read_id=", sp_param['read_id'])
          sp_param['m_event_basecall'] = m_event_basecall.value.decode("utf-8")
-         sp_param['m_event'] = m_event_buf
-
-         if sp_param['read_id'] in f5data:
-            print ('Duplicate id', sp_param['read_id'], f5f)
-         f5data[sp_param['read_id']] = (sp_param['m_event_basecall'], sp_param['m_event'], sp_param['raw_signals'], f5f, sp_param['left_right_skip'])
-         
-         with h5py.File(f5f, 'r') as mf5:
-            sp_param = {}
-            sp_param['mfile_path'] = f5f
-            sp_param['f5reader'] = mf5
-            sp_param['f5status'] = "";
-            # start_getFast5Info=timer()
-            getFast5Info(moptions, sp_param)
-            # end_getFast5Info=timer()
-            # logger.info("get fast5 information time: %s Seconds" % (end_getFast5Info - start_getFast5Info))
-            if 'get_albacore_version' in sp_param:
-               sp_options["get_albacore_version"][str(sp_param['get_albacore_version'])] += 1
-            if sp_param['f5status'] == "":
-               if sp_param['read_id'] in f5data:
-                  print ('Duplicate id', sp_param['read_id'], f5f)
-               f5data[sp_param['read_id']] = (sp_param['m_event_basecall'], sp_param['m_event'], sp_param['raw_signals'], f5f, sp_param['left_right_skip'])
-            else:
-               sp_options["Error"][sp_param['f5status']].append(f5f)
+         m_event = []
+         for i in range(m_events_size.value):
+            m_event.append((round(m_event_buf[i].mean,3), round(m_event_buf[i].stdv,3), m_event_buf[i].start, m_event_buf[i].length, m_event_buf[i].model_state.decode("utf-8")))
+         m_event = np.array(m_event, dtype=[('mean', '<f4'), ('stdv', '<f4'), ('start', np.uint64), ('length', np.uint64), ('model_state', 'U5')])
+         sp_param['m_event'] = m_event
+         sp_param['raw_signals'] = np.round(np.array(list(raw_signals)),3)
+         sp_param['left_right_skip'] = (left_right_skip_left.value, left_right_skip_right.value)
+         if sp_param['f5status'] == "":
+            if sp_param['read_id'] in f5data:
+               print ('Duplicate id', sp_param['read_id'], f5f)
+            f5data[sp_param['read_id']] = (sp_param['m_event_basecall'], sp_param['m_event'], sp_param['raw_signals'], f5f, sp_param['left_right_skip'])
+         else:
+            sp_options["Error"][sp_param['f5status']].append(f5f)
             # for outputing progress
-            if moptions['outLevel']<=myCom.OUTPUT_DEBUG:
-               runnum += 1;
+         if moptions['outLevel']<=myCom.OUTPUT_DEBUG:
+            runnum += 1;
 
-               if runnum%500==0:
-                  end_time = time.time();
-                  print ("%d consuming time %d" % (runnum, end_time-start_time))
+            if runnum%500==0:
+               end_time = time.time();
+               print ("%d consuming time %d" % (runnum, end_time-start_time))
       except:
          sp_options["Error"]["Cannot open fast5 or other errors"].append(f5f)
          print("Cannot open fast5 or other errors: {}".format(f5f))
@@ -602,11 +553,10 @@ def getRefSeq(moptions, sp_param, rname):
 # get mapping information and associate it with events/signals.
 #
 def handle_record(moptions, sp_options, sp_param, f5align, f5data):
-   # logger.info("start getting mapping information and associate it with events/signals.")
    alignkeys = list(f5align.keys());
    numreg = re.compile('\d+')
    mdireg = re.compile('[MIDNSHPX=]{1}')
-
+   
    # for each alignment record
    for readk_ind in range(len(alignkeys)):
      sp_param['f5status']= ""
@@ -841,6 +791,7 @@ def handle_record(moptions, sp_options, sp_param, f5align, f5data):
      pred_f5_key = 'pred_'+str(readk_ind)
      sp_options['Mod'].append([rname, forward_reverse, f5align[readk][3]-1, pred_f5_key, f5data[readk][3][len(moptions['wrkBase'])+1:], predfile[len(moptions['outFolder']+moptions['FileID'])+1:]])
      # save the prediction
+     logger.info("predfile: %s" % predfile)
      with h5py.File(predfile, 'a') as save_data:
          if "pred" in save_data: base_group = save_data["pred"]
          else: base_group = save_data.create_group("pred")

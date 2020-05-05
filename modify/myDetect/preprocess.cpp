@@ -41,7 +41,10 @@ void get_f5len(char* f5name, int& signal_len, int& events_len){
 
 extern "C"
 int get_event_signals(char* mfile_path, char* m_event_basecall,char* read_id_buf, float* my_raw_signals, int& left_right_skip_left, int& left_right_skip_right, M_event* m_event_ptr, int& m_event_size) {
-
+	fstream fout;
+	fout.open("DataPreprocess.log", ios::out | ios::app);
+	fout<<"mfile_path:"<<mfile_path<<endl;
+	fout << endl;
     int signal_len, events_len;
 	H5File file = H5File(mfile_path, H5F_ACC_RDONLY);
     Group reads = file.openGroup("/Raw/Reads");
@@ -59,7 +62,7 @@ int get_event_signals(char* mfile_path, char* m_event_basecall,char* read_id_buf
     string fq_seq = fastq_split[1];
     string read_id_str = String_Replace(String_Replace(fastq_split[0], " ", ":::"), "\t", "|||");
     const char* read_id = read_id_str.data();
-    strcpy(read_id_buf, read_id);
+    strcpy(read_id_buf, read_id+1);
 
     /* read Signal */
 	short* raw_signals = new short[signal_len];
