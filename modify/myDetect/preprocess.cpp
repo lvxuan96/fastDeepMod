@@ -41,10 +41,10 @@ void get_f5len(char* f5name, int& signal_len, int& events_len){
 
 extern "C"
 int get_event_signals(char* mfile_path, char* m_event_basecall,char* read_id_buf, float* my_raw_signals, int& left_right_skip_left, int& left_right_skip_right, M_event* m_event_ptr, int& m_event_size) {
-	fstream fout;
-	fout.open("DataPreprocess.log", ios::out | ios::app);
-	fout<<"mfile_path:"<<mfile_path<<endl;
-	fout << endl;
+//	fstream fout;
+//	fout.open("DataPreprocess.log", ios::out | ios::app);
+//	fout<<"mfile_path:"<<mfile_path<<endl;
+//	fout << endl;
     int signal_len, events_len;
 	H5File file = H5File(mfile_path, H5F_ACC_RDONLY);
     Group reads = file.openGroup("/Raw/Reads");
@@ -52,8 +52,12 @@ int get_event_signals(char* mfile_path, char* m_event_basecall,char* read_id_buf
     string signal_path = "/Raw/Reads/" + reads_idx + "/Signal";
     DataSet signal = file.openDataSet(signal_path);
     signal_len = signal.getSpace().getSimpleExtentNpoints();
+    Group analyse = file.openGroup("/Analyses");
+    H5std_string basecall_id = analyse.getObjnameByIdx(0);
+//    cout<<"basecall: "<<basecall_id<<endl;
+
     /*get read_id*/
-    DataSet fastq = file.openDataSet("/Analyses/Basecall_1D_000/BaseCalled_template/Fastq");
+    DataSet fastq = file.openDataSet("/Analyses/"+basecall_id+"/BaseCalled_template/Fastq");
     DataType fastq_type = fastq.getDataType();
     H5std_string fastq_buf("");
     fastq.read(fastq_buf, fastq_type);
@@ -79,7 +83,7 @@ int get_event_signals(char* mfile_path, char* m_event_basecall,char* read_id_buf
 
     /* read Albacore version */
     int used_albacore_version = 2;
-    Group basecall = file.openGroup("/Analyses/Basecall_1D_000");
+    Group basecall = file.openGroup("/Analyses/"+basecall_id);
     Attribute albacorev = basecall.openAttribute("version");
     DataType albacore_type = albacorev.getDataType();
     H5std_string albacorev_buf("");
@@ -100,7 +104,7 @@ int get_event_signals(char* mfile_path, char* m_event_basecall,char* read_id_buf
     sampling_rate.read(sampling_rate_type, &sampling_rate_buf);
 
     /*read events*/
-    DataSet events = file.openDataSet("/Analyses/Basecall_1D_000/BaseCalled_template/Events");
+    DataSet events = file.openDataSet("/Analyses/"+basecall_id+"/BaseCalled_template/Events");
 	events_len = events.getSpace().getSimpleExtentNpoints();
 	Events_t * events_data = new Events_t[events_len];
     hid_t tid_s = H5Tcopy(H5T_C_S1);
@@ -402,7 +406,7 @@ vector<M_event> get_event(float* my_raw_signals, char* m_event_basecall, string 
 		}
 		const char* m_event_basecall_data = m_event_basecall_str.data();
 		strcpy(m_event_basecall, m_event_basecall_data);
-		cout<<"len of m_event_basecall: "<<strlen(m_event_basecall)<<endl;
+//		cout<<"len of m_event_basecall: "<<strlen(m_event_basecall)<<endl;
 
 		// sp_param['left_right_skip']
 		left_right_skip_left = 0;
